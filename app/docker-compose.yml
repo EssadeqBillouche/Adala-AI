@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  ai-engine:
+    build:
+      context: ./ai-engine
+      dockerfile: Dockerfile
+    container_name: ai-engine
+    env_file:
+      - ./ai-engine/.env
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: api-server
+    environment:
+      NODE_ENV: production
+      # Add more env vars or env_file if needed
+    ports:
+      - "3001:3001"
+    depends_on:
+      - ai-engine
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: web-frontend
+    environment:
+      NODE_ENV: production
+      # Example: API_URL=http://api-server:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - server
+    restart: unless-stopped
