@@ -1,28 +1,24 @@
-FROM node:20-alpine AS deps
-WORKDIR /app
+FROM node:20-alpine AS builder
+WORKDIR /usr/src/app
 
+# Install ALL dependencies (incl. dev) so Nest CLI is available
 COPY package.json package-lock.json* ./
 RUN npm ci
 
-FROM node:20-alpine AS builder
-WORKDIR /app
+COPY tsconfig*.json nest-cli.json ./
+COPY src ./src
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-ENV NODE_ENV=production
 RUN npm run build
 
-FROM node:20-alpine AS runner
-WORKDIR /app
+# ---- Production image ----
+FROM node:20-alpine AS prod
+WORKDIR /usr/src/app
 ENV NODE_ENV=production
 
-# Only what is needed to run
-COPY package.json ./
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/next.config.* ./ || true
+COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev
 
-EXPOSE 3000
+COPY --from=builder /usr/src/app/dist ./dist
 
-CMD ["npm", "run", "start"]
+EXPOSE 3001
+CMD ["node", "dist/main.js"]
