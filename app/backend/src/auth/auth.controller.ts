@@ -29,7 +29,6 @@ export class AuthController {
     return user;
   }
 
-  // Example of a role-protected route
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   @Get('admin-only')
