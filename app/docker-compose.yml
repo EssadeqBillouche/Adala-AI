@@ -8,8 +8,7 @@ services:
     container_name: ai-engine
     env_file:
       - ./ai-engine/.env
-    ports:
-      - "8000:8000"
+    # Removed ports binding so it cannot be accessed from outside the docker network!
     restart: unless-stopped
 
   backend:
@@ -19,9 +18,10 @@ services:
     container_name: backend
     environment:
       NODE_ENV: production
-      # Add more env vars or env_file if needed
-    ports:
-      - "3001:3001"
+      PORT: 3001
+      # Connect to ai engine via docker DNS:
+      AI_ENGINE_URL: http://ai-engine:8000
+    # Also removed port 3001 binding: Nginx handles external traffic!
     depends_on:
       - ai-engine
     restart: unless-stopped
@@ -33,9 +33,7 @@ services:
     container_name: frontend
     environment:
       NODE_ENV: production
-      # Example: API_URL=http://api-server:3001
-    ports:
-      - "3000:3000"
+    # Also removed port 3000 binding: Nginx handles external traffic!
     depends_on:
       - backend
     restart: unless-stopped
@@ -44,11 +42,10 @@ services:
     image: nginx:alpine
     container_name: nginx
     ports:
-      - "80:80"
+      - "80:80"  # ONLY Nginx is exposed to the outside world
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - frontend
       - backend
-      - ai-engine
     restart: unless-stopped
