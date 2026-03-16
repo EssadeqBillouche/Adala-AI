@@ -19,6 +19,7 @@ services:
     container_name: backend
     environment:
       NODE_ENV: production
+      PORT: 3001
       # Add more env vars or env_file if needed
     ports:
       - "3001:3001"
