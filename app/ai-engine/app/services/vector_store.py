@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 class VectorStoreService:
     def __init__(self):
         # Initialize persistent ChromaDB storage in the local container directory
-        self.client = chromadb.PersistentClient(path="/app/chroma_storage")
+        self.client = chromadb.pres
         
         # In a SaaS context with Legal documents, a single shared collection 
         # is optimal IF we stringently use metadata filtering for multi-tenancy.
