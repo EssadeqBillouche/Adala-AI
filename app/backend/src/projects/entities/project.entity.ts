@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { Organization } from '../../organizations/entities/organization.entity';
 
 @Entity('projects')
@@ -18,4 +18,10 @@ export class Project {
   @ManyToOne(() => Organization)
   @JoinColumn({ name: 'organization_id' })
   organization!: Organization;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt!: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt!: Date;
 }
