@@ -22,13 +22,20 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
+      if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+      // If it's the standard Nest error object, extract the 'message'
+      //  handles both single strings and arrays of validation errors
+      message = (exceptionResponse as any).message || exceptionResponse;
+      } else {
+        message = exceptionResponse;
+      }
       message =
         typeof exceptionResponse === 'string'
           ? exceptionResponse
           : (exceptionResponse as Record<string, unknown>)['message'] ??
             exceptionResponse;
     } else {
-      // Never leak internal error details to the client
+      // Log internal Error details
       this.logger.error(
         'Unhandled exception',
         exception instanceof Error ? exception.stack : String(exception),
