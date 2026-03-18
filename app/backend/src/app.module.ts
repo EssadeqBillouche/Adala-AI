@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ClsModule } from 'nestjs-cls';
 
 import { AppController } from './app.controller';
@@ -12,25 +13,20 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { ProjectsModule } from './projects/projects.module';
 import { TenantContextInterceptor } from './tenancy/interceptors/tenant-context.interceptor';
+import { throttlerConfig } from './config/throttler.config';
+import { clsConfig } from './config/cls.config';
+import { typeormConfig } from './config/typeorm.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    ClsModule.forRoot({
-      global: true,
-      middleware: { mount: true },
-    }),
+    ThrottlerModule.forRoot(throttlerConfig()),
+    ClsModule.forRoot(clsConfig()),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        url: configService.get<string>('Db_URL'),
-        autoLoadEntities: true,
-        synchronize: true, // Only for dev.
-        ssl: { rejectUnauthorized: false },
-      }),
+      useFactory: typeormConfig,
       inject: [ConfigService],
     }),
     AuthModule,
@@ -45,6 +41,10 @@ import { TenantContextInterceptor } from './tenancy/interceptors/tenant-context.
     {
       provide: APP_INTERCEPTOR,
       useClass: TenantContextInterceptor,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })
