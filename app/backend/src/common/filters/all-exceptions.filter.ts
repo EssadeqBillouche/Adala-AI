@@ -6,7 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Response, Request } from 'express';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -15,6 +15,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | object = 'Internal server error';
@@ -22,29 +23,25 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
+
+      // Standardize the message extraction
       if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
-      // If it's the standard Nest error object, extract the 'message'
-      //  handles both single strings and arrays of validation errors
-      message = (exceptionResponse as any).message || exceptionResponse;
+        message = (exceptionResponse as any).message || exceptionResponse;
       } else {
         message = exceptionResponse;
       }
-      message =
-        typeof exceptionResponse === 'string'
-          ? exceptionResponse
-          : (exceptionResponse as Record<string, unknown>)['message'] ??
-            exceptionResponse;
     } else {
-      // Log internal Error details
+      // Log the actual error stack 
       this.logger.error(
-        'Unhandled exception',
+        `Unhandled Exception at ${request.method} ${request.url}`,
         exception instanceof Error ? exception.stack : String(exception),
       );
     }
 
     response.status(status).json({
       statusCode: status,
-      message,
+      message: message,
+      path: request.url, // for better debugging on frontend
       timestamp: new Date().toISOString(),
     });
   }
