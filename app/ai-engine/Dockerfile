@@ -1,21 +1,22 @@
-FROM python:3.11-slim AS base
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# System deps (if you need more, add them here)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install system dependencies if required by native libraries used in chromadb
+RUN apt-get update && apt-get install -y \
     build-essential \
- && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Python deps
 COPY requirements.txt .
+
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app source
-COPY app ./app
+# Create volume dir for local persistence
+RUN mkdir -p /app/chroma_storage
 
-# Default port for API
+COPY . .
+
 EXPOSE 8000
 
-# Adjust this command to how you actually run the service
-CMD ["python", "-m", "app.main"]
+# Let uvicorn bind to all interfaces directly so docker routing resolves it.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
