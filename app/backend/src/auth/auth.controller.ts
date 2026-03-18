@@ -1,4 +1,5 @@
 import { Controller, Post, Body, UseGuards, Request, Get } from '@nestjs/common';
+import type { Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
@@ -7,6 +8,7 @@ import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { UserRole } from '../users/entities/user.entity';
+import type { AuthenticatedUser, ValidatedUser } from './interfaces/jwt-payload.interface';
 
 @Controller('auth')
 export class AuthController {
@@ -19,20 +21,20 @@ export class AuthController {
 
   @UseGuards(LocalAuthGuard)
   @Post('login')
-  async login(@Request() req) {
+  async login(@Request() req: ExpressRequest & { user: ValidatedUser }) {
     return this.authService.login(req.user);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')
-  getProfile(@CurrentUser() user: any) {
+  getProfile(@CurrentUser() user: AuthenticatedUser) {
     return user;
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   @Get('admin-only')
-  getAdminData(@CurrentUser() user: any) {
+  getAdminData(@CurrentUser() user: AuthenticatedUser) {
     return { message: 'This is protected data for admins/owners', user };
   }
 }
