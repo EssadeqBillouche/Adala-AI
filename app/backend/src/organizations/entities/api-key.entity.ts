@@ -21,10 +21,10 @@ export class ApiKey {
   @Column({ name: 'rate_limit', default: 100 })
   rateLimit!: number;
 
-  @Column({ name: 'expires_at', nullable: true })
+  @Column({ name: 'expires_at', type: 'timestamp', nullable: true })
   expiresAt!: Date | null;
 
-  @Column({ name: 'last_used_at', nullable: true })
+  @Column({ name: 'last_used_at', type: 'timestamp', nullable: true })
   lastUsedAt!: Date | null;
 
   @Column({ default: false })

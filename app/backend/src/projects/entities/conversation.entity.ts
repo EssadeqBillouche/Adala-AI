@@ -22,10 +22,10 @@ export class Conversation {
   @Column({ type: 'enum', enum: ConvStatus, default: ConvStatus.ACTIVE })
   status!: ConvStatus;
 
-  @Column({ name: 'total_tokens_used', default: 0 })
+  @Column({ name: 'total_tokens_used', type: 'integer', default: 0 })
   totalTokensUsed!: number;
 
-  @Column({ name: 'total_credits_used', default: 0 })
+  @Column({ name: 'total_credits_used', type: 'integer', default: 0 })
   totalCreditsUsed!: number;
 
   @Column({ name: 'vector_thread_ids', type: 'uuid', array: true, default: '{}' })

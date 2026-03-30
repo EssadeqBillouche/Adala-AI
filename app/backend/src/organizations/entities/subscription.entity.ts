@@ -22,16 +22,16 @@ export class Subscription {
   @Column({ name: 'monthly_credits_alloc', default: 0 })
   monthlyCreditsAlloc!: number;
 
-  @Column({ name: 'current_period_start' })
+  @Column({ name: 'current_period_start', type: 'timestamp' })
   currentPeriodStart!: Date;
 
-  @Column({ name: 'current_period_end' })
+  @Column({ name: 'current_period_end', type: 'timestamp' })
   currentPeriodEnd!: Date;
 
   @Column({ name: 'cancel_at_period_end', default: false })
   cancelAtPeriodEnd!: boolean;
 
-  @Column({ name: 'trial_ends_at', nullable: true })
+  @Column({ name: 'trial_ends_at', type: 'timestamp', nullable: true })
   trialEndsAt!: Date | null;
 
   @Column({ name: 'organization_id', unique: true })

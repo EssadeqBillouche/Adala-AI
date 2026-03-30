@@ -14,13 +14,13 @@ export class Message {
   @Column({ type: 'text' })
   content!: string;
 
-  @Column({ name: 'tokens_in', nullable: true })
+  @Column({ name: 'tokens_in', type: 'integer', nullable: true })
   tokensIn!: number | null;
 
-  @Column({ name: 'tokens_out', nullable: true })
+  @Column({ name: 'tokens_out', type: 'integer', nullable: true })
   tokensOut!: number | null;
 
-  @Column({ name: 'latency_ms', nullable: true })
+  @Column({ name: 'latency_ms', type: 'integer', nullable: true })
   latencyMs!: number | null;
 
   @Column({ name: 'rag_score', type: 'double precision', nullable: true })
@@ -29,7 +29,7 @@ export class Message {
   @Column({ name: 'citation_count', default: 0 })
   citationCount!: number;
 
-  @Column({ name: 'error_code', nullable: true })
+  @Column({ name: 'error_code', type: 'varchar', nullable: true })
   errorCode!: string | null;
 
   @Column({ type: 'jsonb', nullable: true })

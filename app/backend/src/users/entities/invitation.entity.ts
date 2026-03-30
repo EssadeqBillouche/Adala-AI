@@ -20,7 +20,7 @@ export class Invitation {
   @Column({ type: 'enum', enum: InviteStatus, default: InviteStatus.PENDING })
   status!: InviteStatus;
 
-  @Column({ name: 'expires_at' })
+  @Column({ name: 'expires_at', type: 'timestamp' })
   expiresAt!: Date;
 
   @Column({ name: 'organization_id' })

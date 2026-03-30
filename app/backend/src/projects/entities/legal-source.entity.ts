@@ -15,22 +15,22 @@ export class LegalSource {
   @Column()
   title!: string;
 
-  @Column({ name: 'file_name', nullable: true })
+  @Column({ name: 'file_name', type: 'varchar', nullable: true })
   fileName!: string | null;
 
-  @Column({ name: 'file_type', nullable: true })
+  @Column({ name: 'file_type', type: 'varchar', nullable: true })
   fileType!: string | null;
 
   @Column({ type: 'enum', enum: SourceType })
   sourceType!: SourceType;
 
-  @Column({ name: 'article_ref', nullable: true })
+  @Column({ name: 'article_ref', type: 'varchar', nullable: true })
   articleRef!: string | null;
 
-  @Column({ name: 'dahir_number', nullable: true })
+  @Column({ name: 'dahir_number', type: 'varchar', nullable: true })
   dahirNumber!: string | null;
 
-  @Column({ name: 'bulletin_number', nullable: true })
+  @Column({ name: 'bulletin_number', type: 'varchar', nullable: true })
   bulletinNumber!: string | null;
 
   @Column({ type: 'enum', enum: Locale, default: Locale.EN })
@@ -45,7 +45,7 @@ export class LegalSource {
   @Column({ type: 'enum', enum: Jurisdiction, default: Jurisdiction.NATIONAL })
   jurisdiction!: Jurisdiction;
 
-  @Column({ name: 's3_url', nullable: true })
+  @Column({ name: 's3_url', type: 'varchar', nullable: true })
   s3Url!: string | null;
 
   @Column({ type: 'enum', enum: EmbeddingStatus, default: EmbeddingStatus.PENDING })

@@ -13,7 +13,7 @@ export class MessageCitation {
   @Column({ name: 'similarity_score', type: 'double precision' })
   similarityScore!: number;
 
-  @Column({ name: 'chunk_index' })
+  @Column({ name: 'chunk_index', type: 'integer' })
   chunkIndex!: number;
 
   @Column({ type: 'text' })
