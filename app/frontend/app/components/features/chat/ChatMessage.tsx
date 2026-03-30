@@ -20,15 +20,21 @@ export default function ChatMessage({
   const isUser = variant === "user";
 
   return (
-    <div className={`flex gap-4 mb-8 ${isUser ? "justify-end" : ""}`}>
+    <div 
+      className={`flex gap-4 mb-8 group ${isUser ? "justify-end" : ""}`}
+      role="article"
+      aria-label={`${isUser ? "Your message" : "AI message"}`}
+    >
       {!isUser && avatar}
       
       <div className={`flex-1 ${isUser ? "max-w-2xl flex flex-col items-end" : ""}`}>
         <div className={`flex items-center gap-2 mb-2 ${isUser ? "flex-row-reverse" : ""}`}>
-          <span className={`font-serif font-semibold ${isUser ? "text-on-surface" : "text-primary"}`}>
+          <span className={`font-serif font-semibold text-base ${isUser ? "text-on-surface" : "text-primary"}`}>
             {senderName}
           </span>
-          <span className="text-sm text-gray-400">{timestamp}</span>
+          <span className="text-xs text-gray-400 font-sans" aria-label={`Sent at ${timestamp}`}>
+            {timestamp}
+          </span>
         </div>
         
         {children}
