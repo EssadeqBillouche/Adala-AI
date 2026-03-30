@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -22,6 +23,33 @@ async function bootstrap() {
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
+  // Swagger/OpenAPI Documentation
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Adala AI API')
+    .setDescription('Legal AI SaaS API - Multi-tenant platform for legal intelligence with credit-based billing')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .addTag('auth', 'Authentication & Registration')
+    .addTag('projects', 'Project Management')
+    .addTag('conversations', 'Conversation Management')
+    .addTag('messages', 'Message Management')
+    .addTag('legal-sources', 'Legal Source Management')
+    .addTag('credit-ledger', 'Credit Ledger & Billing')
+    .addTag('subscription', 'Subscription Management')
+    .addTag('api-keys', 'API Key Management')
+    .addTag('audit-logs', 'Audit Logs')
+    .addTag('invitations', 'User Invitations')
+    .build();
+  const document = SwaggerModule.createDocument(app, swaggerConfig, {
+    deepScanRoutes: true,
+    operationIdFactory: (controllerKey: string, methodKey: string) => methodKey,
+  });
+  SwaggerModule.setup('api', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
   });
 
   // Global filters & pipes
