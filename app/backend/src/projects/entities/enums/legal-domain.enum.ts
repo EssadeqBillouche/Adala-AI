@@ -1,0 +1,8 @@
+export enum LegalDomain {
+  CIVIL = 'CIVIL',
+  PENAL = 'PENAL',
+  COMMERCIAL = 'COMMERCIAL',
+  FAMILY = 'FAMILY',
+  ADMINISTRATIVE = 'ADMINISTRATIVE',
+  LABOR = 'LABOR',
+}
