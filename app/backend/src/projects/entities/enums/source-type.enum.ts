@@ -1,0 +1,7 @@
+export enum SourceType {
+  DAHIR = 'DAHIR',
+  CODE = 'CODE',
+  JURISPRUDENCE = 'JURISPRUDENCE',
+  DOCTRINE = 'DOCTRINE',
+  CIRCULAR = 'CIRCULAR',
+}
