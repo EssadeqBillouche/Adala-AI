@@ -24,7 +24,8 @@ export default function KeyDocuments({ documents, onViewAll }: KeyDocumentsProps
         <Label>KEY DOCUMENTS</Label>
         <button
           onClick={onViewAll}
-          className="label-sm text-secondary hover:text-secondary-container transition-colors"
+          className="label-sm text-secondary hover:text-secondary-container transition-colors font-semibold focus:outline-none focus:underline"
+          aria-label="View all documents"
         >
           VIEW ALL
         </button>

@@ -23,6 +23,7 @@ export default function UserMessage({
       initials={userInitials}
       variant="secondary"
       size="lg"
+      alt="Your avatar"
     />
   );
 
@@ -33,8 +34,10 @@ export default function UserMessage({
       senderName={senderName}
       avatar={avatar}
     >
-      <TonalCard className="p-6 bg-surface-container-lowest" hover={false}>
-        <p className="body-lg text-on-surface">{content}</p>
+      <TonalCard className="p-6 bg-surface-container-lowest" hover={false} padding="none">
+        <div className="p-6">
+          <p className="body-lg text-on-surface leading-relaxed">{content}</p>
+        </div>
       </TonalCard>
     </ChatMessage>
   );

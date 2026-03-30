@@ -12,9 +12,18 @@ interface ActionCardProps {
 
 export default function ActionCard({ label, title, onClick }: ActionCardProps) {
   return (
-    <TonalCard className="p-4" hover={true} onClick={onClick}>
-      <Label variant="secondary" className="mb-1">{label}</Label>
-      <p className="font-medium text-on-surface">{title}</p>
+    <TonalCard 
+      className="p-5 group" 
+      hover={true} 
+      onClick={onClick}
+      padding="none"
+    >
+      <div className="p-5">
+        <Label variant="secondary" className="mb-2 block">{label}</Label>
+        <p className="font-medium text-on-surface text-base group-hover:text-secondary transition-colors duration-200">
+          {title}
+        </p>
+      </div>
     </TonalCard>
   );
 }
