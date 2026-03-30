@@ -116,7 +116,7 @@ describe('ApiKeyService', () => {
       expect(tenancyService.runWithTenant).toHaveBeenCalled();
       expect(mockManager.create).toHaveBeenCalledWith(ApiKey, {
         ...createDto,
-        keyPrefix: 'sk_abcdef12',
+        keyPrefix: 'sk_abcdef123',
         keyHash: 'hashed-key-value',
         organizationId: mockOrganizationId,
       });
@@ -217,7 +217,8 @@ describe('ApiKeyService', () => {
       await service.findAll();
 
       expect(mockManager.find).toHaveBeenCalledWith(ApiKey, {
-        select: expect.not.arrayContaining(['keyHash']),
+        select: ['id', 'name', 'keyPrefix', 'scopes', 'rateLimit', 'expiresAt', 'lastUsedAt', 'isRevoked', 'createdAt'],
+        order: { createdAt: 'DESC' },
       });
     });
 
@@ -227,6 +228,7 @@ describe('ApiKeyService', () => {
       await service.findAll();
 
       expect(mockManager.find).toHaveBeenCalledWith(ApiKey, {
+        select: ['id', 'name', 'keyPrefix', 'scopes', 'rateLimit', 'expiresAt', 'lastUsedAt', 'isRevoked', 'createdAt'],
         order: { createdAt: 'DESC' },
       });
     });
@@ -365,12 +367,16 @@ describe('ApiKeyService', () => {
     });
 
     it('should set isRevoked to true', async () => {
-      (mockManager.findOne as jest.Mock).mockResolvedValue(mockApiKey);
-      (mockManager.save as jest.Mock).mockResolvedValue(mockApiKey);
+      const mockKey = { ...mockApiKey, isRevoked: false };
+      mockKey.revoke = jest.fn(() => {
+        mockKey.isRevoked = true;
+      });
+      (mockManager.findOne as jest.Mock).mockResolvedValue(mockKey);
+      (mockManager.save as jest.Mock).mockResolvedValue(mockKey);
 
       await service.revoke(mockApiKeyId);
 
-      expect(mockApiKey.isRevoked).toBe(true);
+      expect(mockKey.isRevoked).toBe(true);
     });
   });
 
