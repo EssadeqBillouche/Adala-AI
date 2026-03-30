@@ -22,10 +22,10 @@ export class AuditLog {
   @Column({ type: 'jsonb', nullable: true })
   diff!: Record<string, unknown> | null;
 
-  @Column({ name: 'ip_address', nullable: true })
+  @Column({ name: 'ip_address', type: 'varchar', nullable: true })
   ipAddress!: string | null;
 
-  @Column({ name: 'user_agent', nullable: true })
+  @Column({ name: 'user_agent', type: 'varchar', nullable: true })
   userAgent!: string | null;
 
   @Column({ name: 'organization_id' })

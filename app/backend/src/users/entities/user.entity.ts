@@ -15,7 +15,7 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ name: 'full_name', nullable: true })
+  @Column({ name: 'full_name', type: 'varchar', nullable: true })
   fullName!: string | null;
 
   @Column({ unique: true })

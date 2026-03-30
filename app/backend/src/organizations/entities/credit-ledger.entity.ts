@@ -19,7 +19,7 @@ export class CreditLedger {
   @Column({ name: 'balance_after' })
   balanceAfter!: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   reason!: string | null;
 
   @Column({ name: 'idempotency_key', unique: true })

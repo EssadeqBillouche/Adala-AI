@@ -20,7 +20,7 @@ export class Organization {
   @Column({ unique: true })
   slug!: string;
 
-  @Column({ name: 'billing_email', nullable: true })
+  @Column({ name: 'billing_email', type: 'varchar', nullable: true })
   billingEmail!: string | null;
 
   @Column({ type: 'enum', enum: TenantTier, default: TenantTier.FREE })
@@ -35,7 +35,7 @@ export class Organization {
   @Column({ name: 'max_seats', default: 5 })
   maxSeats!: number;
 
-  @Column({ name: 'logo_url', nullable: true })
+  @Column({ name: 'logo_url', type: 'varchar', nullable: true })
   logoUrl!: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
