@@ -4,8 +4,8 @@ import { ProjectsService } from './projects.service';
 import { TenancyService } from '../tenancy/tenancy.service';
 import { Project } from './entities/project.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
-import { Locale } from './enums/locale.enum';
-import { LegalDomain } from './enums/legal-domain.enum';
+import { Locale } from './entities/enums/locale.enum';
+import { LegalDomain } from './entities/enums/legal-domain.enum';
 
 describe('ProjectsService', () => {
   let service: ProjectsService;
@@ -40,12 +40,19 @@ describe('ProjectsService', () => {
       findOne: jest.fn(),
     };
 
-    const tenancyServiceMock = {
-      runWithTenant: jest.fn((callback) => callback(mockManager as EntityManager)),
+    const dataSourceMock = {
+      transaction: jest.fn().mockImplementation(async (callback) => {
+        return callback(mockManager as EntityManager);
+      }),
     };
 
-    const dataSourceMock = {
-      transaction: jest.fn((callback) => callback(mockManager as EntityManager)),
+    const tenancyServiceMock = {
+      runWithTenant: jest.fn().mockImplementation(async (callback) => {
+        // Simulate the actual implementation which uses dataSource.transaction
+        return dataSourceMock.transaction(async (manager) => {
+          return callback(manager);
+        });
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
