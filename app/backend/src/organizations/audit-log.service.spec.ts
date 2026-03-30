@@ -176,13 +176,14 @@ describe('AuditLogService', () => {
       expect(result.diff).toBeUndefined();
     });
 
-    it('should include organizationId in the created log', async () => {
+    it('should rely on RLS for organization context', async () => {
       const createdLog = { ...mockAuditLog };
       (mockManager.create as jest.Mock).mockReturnValue(createdLog);
       (mockManager.save as jest.Mock).mockResolvedValue(createdLog);
 
       await service.log(ActorType.USER, 'CREATE', 'Project', mockResourceId);
 
+      expect(tenancyService.runWithTenant).toHaveBeenCalled();
       expect(mockManager.create).toHaveBeenCalledWith(AuditLog, {
         actorType: ActorType.USER,
         action: 'CREATE',
@@ -191,7 +192,6 @@ describe('AuditLogService', () => {
         diff: undefined,
         ipAddress: undefined,
         userAgent: undefined,
-        organizationId: mockOrganizationId,
       });
     });
   });
