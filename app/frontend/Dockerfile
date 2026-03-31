@@ -1,5 +1,5 @@
 # Frontend (Next.js) Dockerfile
-FROM node:20-alpine AS base
+FROM node:25-alpine AS base
 
 WORKDIR /usr/src/app
 
@@ -16,7 +16,7 @@ COPY . .
 RUN npm run build
 
 # Production image
-FROM node:20-alpine AS prod
+FROM node:25-alpine AS prod
 
 WORKDIR /usr/src/app
 
