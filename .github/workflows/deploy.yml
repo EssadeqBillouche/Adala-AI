@@ -101,7 +101,7 @@ jobs:
             type=sha,prefix=,format=short
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ env.WORKING_DIRECTORY_BACKEND }}
           file: ${{ env.WORKING_DIRECTORY_BACKEND }}/Dockerfile
@@ -163,7 +163,7 @@ jobs:
             type=sha,prefix=,format=short
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ env.WORKING_DIRECTORY_FRONTEND }}
           file: ${{ env.WORKING_DIRECTORY_FRONTEND }}/Dockerfile
