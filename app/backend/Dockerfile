@@ -1,4 +1,4 @@
-FROM node:20-alpine AS base
+FROM node:25-alpine AS base
 
 WORKDIR /usr/src/app
 
@@ -12,7 +12,7 @@ COPY src ./src
 RUN npm run build
 
 # Production image
-FROM node:20-alpine AS prod
+FROM node:25-alpine AS prod
 WORKDIR /usr/src/app
 
 ENV NODE_ENV=production
