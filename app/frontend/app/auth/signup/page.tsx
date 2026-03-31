@@ -17,6 +17,7 @@ export default function SignupPage() {
     confirmPassword: "",
     acceptTerms: false,
     acceptNewsletter: false,
+    organizationName: "",
   });
   
   const [fieldErrors, setFieldErrors] = useState<{
@@ -80,6 +81,7 @@ export default function SignupPage() {
         firstName: formData.firstName,
         lastName: formData.lastName,
         acceptTerms: formData.acceptTerms,
+        organizationName: formData.organizationName || undefined,
       });
       router.push("/subscription");
     } catch (err) {
@@ -258,6 +260,23 @@ export default function SignupPage() {
               {fieldErrors.email && (
                 <p className="mt-1 text-sm text-error">{fieldErrors.email}</p>
               )}
+            </div>
+
+            {/* Organization Name Field (Optional) */}
+            <div>
+              <label htmlFor="organizationName" className="block label-sm text-gray-500 mb-2">
+                Organization Name <span className="text-gray-400">(Optional)</span>
+              </label>
+              <input
+                id="organizationName"
+                name="organizationName"
+                type="text"
+                autoComplete="organization"
+                value={formData.organizationName}
+                onChange={handleInputChange}
+                className={`w-full px-4 py-3 bg-surface-container-high rounded-md border border-transparent focus:bg-surface-container-highest focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all duration-200`}
+                placeholder="e.g., Alami Law Firm"
+              />
             </div>
 
             {/* Password Field */}
