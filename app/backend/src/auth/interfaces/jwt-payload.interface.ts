@@ -33,6 +33,8 @@ export interface AuthenticatedUser {
 export interface ValidatedUser {
   id: string;
   email: string;
+  firstName: string | null;
+  lastName: string | null;
   role: UserRole;
   lastLoginAt: Date;
   organizationId: string;
