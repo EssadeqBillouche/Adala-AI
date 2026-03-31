@@ -1,0 +1,26 @@
+# Code Owners for Adala AI
+# https://help.github.com/articles/about-codeowners/
+
+# Default owners for the entire repository
+* @nobodyy
+
+# Backend ownership
+/app/backend/** @nobodyy
+
+# Frontend ownership
+/app/frontend/** @nobodyy
+
+# AI Engine ownership
+/app/ai-engine/** @nobodyy
+
+# CI/CD workflows ownership
+.github/workflows/** @nobodyy
+
+# Docker configuration
+**/Dockerfile @nobodyy
+docker-compose.yml @nobodyy
+
+# Infrastructure and deployment
+**/*.tf @nobodyy
+**/*.yaml @nobodyy
+**/*.yml @nobodyy
