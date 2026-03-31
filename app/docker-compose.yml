@@ -1,29 +1,31 @@
 version: "3.9"
 
 services:
-  ai-engine:
-    build:
-      context: ./ai-engine
-      dockerfile: Dockerfile
-    container_name: ai-engine
-    env_file:
-      - ./ai-engine/.env
-    # Removed ports binding so it cannot be accessed from outside the docker network!
-    restart: unless-stopped
+  # ai-engine:
+  #   build:
+  #     context: ./ai-engine
+  #     dockerfile: Dockerfile
+  #   container_name: ai-engine
+  #   env_file:
+  #     - ./ai-engine/.env
+  #   # Removed ports binding so it cannot be accessed from outside the docker network!
+  #   restart: unless-stopped
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: backend
+    env_file:
+      - ./backend/.env
     environment:
       NODE_ENV: production
-      PORT: 3001
+      PORT: 4000
       # Connect to ai engine via docker DNS:
       AI_ENGINE_URL: http://ai-engine:8000
     # Also removed port 3001 binding: Nginx handles external traffic!
-    depends_on:
-      - ai-engine
+    # depends_on:
+    #   - ai-engine
     restart: unless-stopped
 
   frontend:
