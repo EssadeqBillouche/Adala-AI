@@ -44,8 +44,8 @@ export class AuthService {
     }
 
     // Create organization
-    const orgName = registerDto.organizationName || `${registerDto.email}'s Org`;
-    
+    const orgName = registerDto.organizationName || `${registerDto.firstName} ${registerDto.lastName}'s Org`;
+
     const org = await this.organizationsService.create(orgName);
 
     // Hash password
@@ -56,6 +56,8 @@ export class AuthService {
     const user = await this.usersService.create({
       email: registerDto.email,
       passwordHash,
+      firstName: registerDto.firstName,
+      lastName: registerDto.lastName,
       organizationId: org.id,
       organization: org,
     });
