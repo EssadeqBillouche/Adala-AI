@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { api } from "../lib/api";
 
 interface Plan {
   id: string;
@@ -104,13 +105,41 @@ export default function SubscriptionPage() {
     setIsLoading(true);
 
     try {
-      // TODO: Integrate with backend payment API
-      // await fetch(`${API_BASE_URL}/api/subscription/create-checkout`, { ... })
-      
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      
-      // Redirect to payment or confirmation
+      // Map plan IDs to Stripe price IDs (in production, these would be actual Stripe price IDs)
+      const planPriceIds: Record<string, string> = {
+        basic: "price_basic_monthly",
+        premium: "price_premium_monthly",
+        enterprise: "price_enterprise_monthly",
+      };
+
+      const planMonthlyPrices: Record<string, number> = {
+        basic: 299,
+        premium: 799,
+        enterprise: 1999,
+      };
+
+      if (planId === "free") {
+        // For free plan, just redirect to dashboard
+        router.push("/dashboard");
+        return;
+      }
+
+      // Create subscription in backend
+      const subscriptionData = {
+        stripeSubscriptionId: `sub_${planId}_${Date.now()}`,
+        stripeCustomerId: `cus_${user?.organizationId || Date.now()}`,
+        stripePriceId: planPriceIds[planId] || "price_basic_monthly",
+        status: "TRIALING" as const,
+        monthlyCreditsAlloc: planMonthlyPrices[planId] || 299,
+        currentPeriodStart: new Date().toISOString(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        cancelAtPeriodEnd: false,
+        trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      };
+
+      await api.createSubscription(subscriptionData);
+
+      // Redirect to dashboard after successful subscription
       router.push("/dashboard");
     } catch (error) {
       console.error("Subscription error:", error);

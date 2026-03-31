@@ -2,6 +2,7 @@ import { Controller, Post, Body, UseGuards, Request, Get } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import type { Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service';
+import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
@@ -15,25 +16,40 @@ import type { AuthenticatedUser, ValidatedUser } from './interfaces/jwt-payload.
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private usersService: UsersService,
+  ) {}
 
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
-  @ApiResponse({ status: 201, description: 'User registered successfully' })
+  @ApiResponse({ status: 201, description: 'User registered successfully. Returns JWT token and user info' })
   @ApiResponse({ status: 400, description: 'Bad request - Invalid input' })
   @ApiResponse({ status: 409, description: 'Email already in use' })
   async register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
+    const user = await this.authService.register(registerDto);
+    const payload = { email: user.email, sub: user.id, role: user.role, orgId: user.organizationId };
+    const access_token = this.authService['jwtService'].sign(payload);
+    const { id, email, firstName, lastName, role, organization, createdAt, updatedAt } = user;
+    return {
+      access_token,
+      user: { id, email, firstName, lastName, role, organization, createdAt, updatedAt },
+    };
   }
 
   @UseGuards(LocalAuthGuard)
   @Post('login')
   @ApiOperation({ summary: 'Login user' })
   @ApiBody({ type: LoginDto })
-  @ApiResponse({ status: 200, description: 'Login successful, returns JWT token' })
+  @ApiResponse({ status: 200, description: 'Login successful, returns JWT token and user info' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(@Body() loginDto: LoginDto, @Request() req: ExpressRequest & { user: ValidatedUser }) {
-    return this.authService.login(req.user);
+    const { access_token } = await this.authService.login(req.user);
+    const { id, email, firstName, lastName, role, organization, createdAt, updatedAt } = req.user;
+    return {
+      access_token,
+      user: { id, email, firstName, lastName, role, organization, createdAt, updatedAt },
+    };
   }
 
   @UseGuards(JwtAuthGuard)
@@ -42,8 +58,20 @@ export class AuthController {
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiResponse({ status: 200, description: 'User profile' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  getProfile(@CurrentUser() user: AuthenticatedUser) {
-    return user;
+  async getProfile(@CurrentUser() user: AuthenticatedUser) {
+    const fullUser = await this.usersService.findById(user.userId);
+    if (!fullUser) {
+      return {
+        id: user.userId,
+        email: user.email,
+        firstName: null,
+        lastName: null,
+        role: user.role,
+        organizationId: user.orgId,
+      };
+    }
+    const { id, email, firstName, lastName, role, organizationId, createdAt, updatedAt } = fullUser;
+    return { id, email, firstName, lastName, role, organizationId, createdAt, updatedAt };
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

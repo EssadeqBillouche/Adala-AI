@@ -224,7 +224,7 @@ export default function Sidebar({ variant = "vertical" }: SidebarProps) {
                   {user.firstName} {user.lastName}
                 </p>
                 <Label variant="muted" className="capitalize">
-                  {user.subscriptionPlan || "Free"} Plan
+                  {user.role || "Member"}
                 </Label>
               </div>
               <Avatar
