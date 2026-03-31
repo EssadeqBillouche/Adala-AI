@@ -19,6 +19,16 @@ export class RegisterDto {
   })
   password!: string;
 
+  @ApiProperty({ description: 'User first name', example: 'Ahmed' })
+  @IsString()
+  @MinLength(2)
+  firstName!: string;
+
+  @ApiProperty({ description: 'User last name', example: 'Alami' })
+  @IsString()
+  @MinLength(2)
+  lastName!: string;
+
   @ApiPropertyOptional({ description: 'Organization name', example: 'Acme Law Firm' })
   @IsOptional()
   @IsString()
