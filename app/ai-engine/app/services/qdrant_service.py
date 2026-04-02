@@ -20,6 +20,8 @@ from qdrant_client.models import (
 )
 from fastembed import SparseTextEmbedding, TextEmbedding
 
+from app.services.chunker import LegalDocumentChunker
+
 logger = logging.getLogger(__name__)
 
 # BGE-M3 embedding dimensions
@@ -63,6 +65,13 @@ class QdrantService:
         # BGE-M3: Multilingual model supporting Arabic, French, English
         self.dense_model = TextEmbedding(model_name="BAAI/bge-m3")
         self.sparse_model = SparseTextEmbedding(model_name="prithvida/Splade_PP_en_v1")
+        
+        # Initialize chunker for legal documents
+        self.chunker = LegalDocumentChunker(
+            chunk_size=512,      # ~128 tokens (assuming 4 chars/token)
+            chunk_overlap=50,    # Preserve context at boundaries
+            min_chunk_size=100,  # Avoid tiny fragments
+        )
         
         # Ensure collection exists with hybrid search configuration
         self._ensure_collection()
@@ -128,9 +137,20 @@ class QdrantService:
         tenant_id: str,
         doc_id: str,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> str:
+    ) -> List[str]:
         """
-        Add a document to Qdrant with both dense and sparse vectors.
+        Add a document to Qdrant with automatic chunking.
+        
+        Chunking Strategy (for project presentation):
+        -----------------
+        1. Article-based splitting: Detects "المادة X" / "Article X" patterns
+        2. Overlapping windows: 50-char overlap preserves context at boundaries
+        3. Hierarchy-aware: Laws → Chapters → Articles → Paragraphs
+        
+        WHY THIS MATTERS FOR LEGAL RAG:
+        - Citations reference specific articles (e.g., "Article 23")
+        - Splitting mid-article loses legal meaning
+        - Overlap prevents context loss at chunk boundaries
         
         Args:
             text: Document text content
@@ -139,36 +159,60 @@ class QdrantService:
             metadata: Additional metadata (article_number, source, law_type, etc.)
         
         Returns:
-            The document ID
+            List of chunk IDs that were indexed
         """
-        # Generate embeddings
-        dense_vector = self._generate_dense_embedding(text)
-        sparse_vector = self._generate_sparse_embedding(text)
-        
-        # Prepare metadata with tenant isolation
-        full_metadata = {
-            **(metadata or {}),
-            "tenant_id": tenant_id,
-            "content": text,  # Store original content in metadata for retrieval
-        }
-        
-        # Create point with both vector types
-        point = PointStruct(
-            id=doc_id,
-            vector={
-                "dense": dense_vector,
-                "sparse": sparse_vector,
-            },
-            payload=full_metadata,
+        # Chunk the document using legal-aware strategy
+        chunks = self.chunker.chunk_document(
+            text=text,
+            metadata=metadata or {},
         )
         
-        self.client.upsert(
-            collection_name=self.collection_name,
-            points=[point],
-        )
+        logger.info(f"Chunked document into {len(chunks)} chunks")
         
-        logger.debug(f"Document {doc_id} indexed for tenant {tenant_id}")
-        return doc_id
+        # Index each chunk
+        indexed_ids = []
+        for i, chunk in enumerate(chunks):
+            chunk_id = f"{doc_id}_chunk_{i}"
+            
+            # Merge chunk metadata with base metadata
+            chunk_metadata = {
+                **metadata,
+                **chunk.metadata,
+                "parent_doc_id": doc_id,
+                "chunk_index": i,
+                "total_chunks": len(chunks),
+            }
+            
+            # Generate embeddings for this chunk
+            dense_vector = self._generate_dense_embedding(chunk.content)
+            sparse_vector = self._generate_sparse_embedding(chunk.content)
+            
+            # Prepare full metadata with tenant isolation
+            full_metadata = {
+                **chunk_metadata,
+                "tenant_id": tenant_id,
+                "content": chunk.content,
+            }
+            
+            # Create point with both vector types
+            point = PointStruct(
+                id=chunk_id,
+                vector={
+                    "dense": dense_vector,
+                    "sparse": sparse_vector,
+                },
+                payload=full_metadata,
+            )
+            
+            self.client.upsert(
+                collection_name=self.collection_name,
+                points=[point],
+            )
+            
+            indexed_ids.append(chunk_id)
+        
+        logger.debug(f"Document {doc_id} indexed as {len(indexed_ids)} chunks for tenant {tenant_id}")
+        return indexed_ids
 
     def search_hybrid_rrf(
         self,
