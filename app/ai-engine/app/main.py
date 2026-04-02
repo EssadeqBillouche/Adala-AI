@@ -79,6 +79,8 @@ app.include_router(legal_rag_router)
 # LEGACY COMPATIBILITY ENDPOINTS
 # =============================================================================
 
+import uuid
+
 from app.services.qdrant_service import QdrantService
 
 # Singleton Qdrant service for legacy endpoints
@@ -139,19 +141,19 @@ async def index_document(
     metadata: dict = None,
 ):
     """
-    Legacy endpoint: Ingests text completely siloed by the injected Tenant ID.
-    Use /v1/documents (new) for more features.
+    Legacy endpoint: Ingests text with automatic article-based chunking.
+    Returns list of chunk IDs. Use /v1/documents (new) for more features.
     """
     qdrant = get_qdrant_service()
     
-    indexed_id = qdrant.add_document(
+    indexed_ids = qdrant.add_document(
         text=text,
         tenant_id=tenant_id,
-        doc_id=doc_id,
+        doc_id=doc_id or str(uuid.uuid4()),
         metadata=metadata,
     )
     
-    return {"status": "success", "indexed_id": indexed_id}
+    return {"status": "success", "chunk_ids": indexed_ids, "total_chunks": len(indexed_ids)}
 
 
 @app.post("/v1/search")
