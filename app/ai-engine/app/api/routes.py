@@ -142,25 +142,30 @@ async def ingest_document(
     - article_number: The article number (e.g., "23")
     - source: The law source (e.g., "Moroccan Constitution")
     - law_type: Type of law (e.g., "constitutional", "penal", "civil")
+    
+    Returns:
+        List of chunk IDs that were indexed (document is auto-chunked)
     """
     import uuid
     
     doc_id = request.doc_id or str(uuid.uuid4())
     
     try:
-        indexed_id = qdrant_service.add_document(
+        indexed_ids = qdrant_service.add_document(
             text=request.text,
             tenant_id=x_tenant_id,
             doc_id=doc_id,
             metadata=request.metadata,
         )
         
-        logger.info(f"Document {indexed_id} ingested for tenant {x_tenant_id}")
+        logger.info(f"Document {doc_id} ingested as {len(indexed_ids)} chunks for tenant {x_tenant_id}")
         
         return {
             "status": "success",
-            "indexed_id": indexed_id,
-            "message": "Document indexed successfully",
+            "document_id": doc_id,
+            "chunk_ids": indexed_ids,
+            "total_chunks": len(indexed_ids),
+            "message": f"Document auto-chunked and indexed successfully",
         }
         
     except Exception as e:
