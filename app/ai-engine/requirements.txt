@@ -1,4 +1,20 @@
 fastapi>=0.109.0
 uvicorn>=0.27.0
-chromadb>=0.4.22
 pydantic>=2.5.3
+
+# Vector Database - Qdrant with Hybrid Search support
+qdrant-client>=1.7.0
+
+# Embedding Models - FastEmbed for BGE-M3 multilingual embeddings
+fastembed>=0.2.0
+
+# LLM Orchestration - LangGraph for RAG workflows
+langgraph>=0.0.40
+langchain>=0.1.0
+langchain-core>=0.1.0
+
+# HTTP Client for LLM APIs
+httpx>=0.26.0
+
+# Async support
+aiohttp>=3.9.0

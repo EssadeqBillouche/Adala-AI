@@ -1,16 +1,47 @@
 version: "3.9"
 
 services:
-  # ai-engine:
-  #   build:
-  #     context: ./ai-engine
-  #     dockerfile: Dockerfile
-  #   container_name: ai-engine
-  #   env_file:
-  #     - ./ai-engine/.env
-  #   # Removed ports binding so it cannot be accessed from outside the docker network!
-  #   restart: unless-stopped
+  # =============================================================================
+  # QDRANT - Vector Database with Hybrid Search
+  # =============================================================================
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    ports:
+      - "6333:6333"  # Qdrant Dashboard: http://localhost:6333/dashboard
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:6333/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
+  # =============================================================================
+  # AI ENGINE - AdalaAI Legal RAG Engine (FastAPI + LangGraph)
+  # =============================================================================
+  ai-engine:
+    build:
+      context: ./ai-engine
+      dockerfile: Dockerfile
+    container_name: ai-engine
+    env_file:
+      - ./ai-engine/.env
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    # No ports exposed - internal only via backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # BACKEND - NestJS Orchestration Layer
+  # =============================================================================
   backend:
     build:
       context: ./backend
@@ -24,8 +55,9 @@ services:
       # Connect to ai engine via docker DNS:
       AI_ENGINE_URL: http://ai-engine:8000
     # Also removed port 3001 binding: Nginx handles external traffic!
-    # depends_on:
-    #   - ai-engine
+    depends_on:
+      - ai-engine
+      - qdrant
     restart: unless-stopped
 
   frontend:
@@ -51,3 +83,10 @@ services:
       - frontend
       - backend
     restart: unless-stopped
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  qdrant_storage:
+    driver: local
