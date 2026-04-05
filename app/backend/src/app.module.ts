@@ -12,6 +12,7 @@ import { UsersModule } from './users/users.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { ProjectsModule } from './projects/projects.module';
+import { AiModule } from './ai/ai.module';
 import { TenantContextInterceptor } from './tenancy/interceptors/tenant-context.interceptor';
 import { throttlerConfig } from './config/throttler.config';
 import { clsConfig } from './config/cls.config';
@@ -34,6 +35,7 @@ import { typeormConfig } from './config/typeorm.config';
     OrganizationsModule,
     TenancyModule,
     ProjectsModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [

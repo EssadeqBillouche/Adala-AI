@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { ChatLayout, type Message, type Action } from "../components/features/chat";
 import { api, type Conversation, type CreateMessageRequest } from "../lib/api";
@@ -13,51 +13,46 @@ function ConsultAIContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [showTyping, setShowTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Scroll to bottom when new messages arrive
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
   // Load or create conversation on mount
   useEffect(() => {
     const initConversation = async () => {
       try {
-        // Try to get existing conversations (you might want to filter by project)
         const conversations = await api.getConversations();
-        
+
         if (conversations.length > 0) {
-          // Use existing conversation
           setConversation(conversations[0]);
-          // Load messages for this conversation
           const msgs = await api.getMessages(conversations[0].id);
           setMessages(msgs.map(msg => ({
             id: msg.id,
             type: msg.role === "USER" ? "user" : "ai" as const,
             content: msg.content,
-            timestamp: new Date(msg.createdAt).toLocaleTimeString("en-US", { 
-              hour: "numeric", 
-              minute: "2-digit", 
-              hour12: true 
+            timestamp: new Date(msg.createdAt).toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true
             }),
             senderName: msg.role === "ASSISTANT" ? "Majlis Counsel" : undefined,
           })));
         } else {
-          // Create new conversation (you'll need a project first)
-          // For now, we'll create one with a default project
           const projects = await api.getProjects();
           let projectId = projects[0]?.id;
-          
+
           if (!projectId) {
-            // Create a default project if none exists
             const newProject = await api.createProject({ title: "My First Case" });
             projectId = newProject.id;
           }
-          
+
           const newConversation = await api.createConversation({
             title: "Legal Consultation",
             projectId,
@@ -76,8 +71,19 @@ function ConsultAIContent() {
   const handleSendMessage = async (message: string) => {
     if (!conversation || !message.trim()) return;
 
+    // Cancel any ongoing streaming request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     setIsLoading(true);
     setShowTyping(true);
+
+    // Unique ID for the streaming AI message
+    const aiMessageId = `ai-${Date.now()}`;
 
     try {
       // Add user message to UI immediately
@@ -85,64 +91,113 @@ function ConsultAIContent() {
         id: `temp-${Date.now()}`,
         type: "user",
         content: message,
-        timestamp: new Date().toLocaleTimeString("en-US", { 
-          hour: "numeric", 
-          minute: "2-digit", 
-          hour12: true 
+        timestamp: new Date().toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true
         }),
       };
       setMessages((prev) => [...prev, userMessage]);
 
-      // Send user message to backend
+      // Send user message to backend (fire and forget — don't block streaming)
       const messageData: CreateMessageRequest = {
         role: "USER",
         content: message,
         conversationId: conversation.id,
       };
-      await api.createMessage(messageData);
+      api.createMessage(messageData).catch(err => console.error("Failed to save user message:", err));
 
-      // Simulate AI response (in production, this would call your AI service)
-      // For now, we'll create a placeholder AI response
-      setTimeout(async () => {
-        const aiResponse: Message = {
-          id: `ai-${Date.now()}`,
-          type: "ai",
-          content: "Thank you for your question. Based on Moroccan law, I'm analyzing your request. In a production environment, this would connect to an AI service trained on Moroccan legal codes.",
-          timestamp: new Date().toLocaleTimeString("en-US", { 
-            hour: "numeric", 
-            minute: "2-digit", 
-            hour12: true 
-          }),
-          senderName: "Majlis Counsel",
-        };
-        
-        setMessages((prev) => [...prev, aiResponse]);
-        setShowTyping(false);
+      // Create a placeholder AI message that will be updated incrementally
+      const placeholderAiMessage: Message = {
+        id: aiMessageId,
+        type: "ai",
+        content: "",
+        timestamp: new Date().toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true
+        }),
+        senderName: "Majlis Counsel",
+      };
+      setMessages((prev) => [...prev, placeholderAiMessage]);
 
-        // Save AI response to backend
+      // Start streaming from the AI engine
+      let fullAnswer = "";
+      let hasReceivedContent = false;
+
+      for await (const event of api.streamAsk(
+        { question: message, conversationId: conversation.id },
+        abortController.signal
+      )) {
+        if (event.type === "documents") {
+          // Documents retrieved — still in thinking phase
+          setShowTyping(true);
+        } else if (event.type === "answer_chunk") {
+          // First chunk arrives — hide typing indicator
+          if (!hasReceivedContent) {
+            hasReceivedContent = true;
+            setShowTyping(false);
+          }
+          fullAnswer += event.content || "";
+          // Update the AI message incrementally
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId ? { ...msg, content: fullAnswer } : msg
+            )
+          );
+        } else if (event.type === "error") {
+          setShowTyping(false);
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId
+                ? { ...msg, content: `Error: ${event.error || "Unknown error occurred"}` }
+                : msg
+            )
+          );
+          break;
+        } else if (event.type === "end") {
+          setShowTyping(false);
+          break;
+        }
+      }
+
+      // Save the complete AI response to the backend
+      if (fullAnswer) {
         const aiMessageData: CreateMessageRequest = {
           role: "ASSISTANT",
-          content: aiResponse.content as string,
+          content: fullAnswer,
           conversationId: conversation.id,
         };
-        await api.createMessage(aiMessageData);
-      }, 1500);
-    } catch (error) {
+        await api.createMessage(aiMessageData).catch(err =>
+          console.error("Failed to save AI message:", err)
+        );
+      }
+    } catch (error: any) {
+      if (error.name === "AbortError") {
+        console.log("Streaming aborted");
+        return;
+      }
       console.error("Failed to send message:", error);
       setShowTyping(false);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === aiMessageId
+            ? { ...msg, content: `Error: ${error.message || "Failed to get response"}` }
+            : msg
+        )
+      );
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
   const handleAttachFile = () => {
     console.log("Attaching file");
-    // TODO: Implement file upload - would need additional backend endpoint
   };
 
   const handleActionClick = (actionId: string) => {
     console.log("Action clicked:", actionId);
-    // TODO: Handle action clicks - could trigger specific AI queries or templates
   };
 
   // Show loading state while initializing
