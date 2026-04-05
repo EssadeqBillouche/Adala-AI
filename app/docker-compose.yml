@@ -29,11 +29,6 @@ services:
     container_name: ai-engine
     env_file:
       - ./ai-engine/.env
-    volumes:
-      # Mount pre-downloaded model cache so the container starts instantly
-      # without needing to download ~3 GB of models at runtime.
-      - ./ai-engine/.model-cache/huggingface:/root/.cache/huggingface:ro
-      - ./ai-engine/.model-cache/fastembed:/root/.cache/fastembed:ro
     depends_on:
       qdrant:
         condition: service_started

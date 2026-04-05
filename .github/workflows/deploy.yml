@@ -240,6 +240,8 @@ jobs:
           platforms: linux/amd64
           build-args: |
             LOG_LEVEL=INFO
+          # First build downloads ~3 GB of models. Subsequent builds
+          # are instant thanks to GitHub Actions Docker layer cache.
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master

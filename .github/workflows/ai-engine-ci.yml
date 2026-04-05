@@ -137,7 +137,7 @@ jobs:
   docker-build:
     name: Docker Build Test
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     needs: [lint]
 
     steps:
@@ -157,6 +157,8 @@ jobs:
           tags: ai-engine:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # First build downloads ~3 GB of models (~10 min).
+          # Subsequent PR builds are instant via layer cache.
 
       - name: Verify image
         run: docker images ai-engine:test
