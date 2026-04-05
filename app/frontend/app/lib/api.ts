@@ -386,6 +386,92 @@ class ApiClient {
   async getLegalSource(id: string): Promise<any> {
     return this.get<any>(`/legal-sources/${id}`);
   }
+
+  // ==================== AI STREAMING ENDPOINTS ====================
+
+  /**
+   * Stream a question to the AI engine via the backend SSE relay.
+   * Returns an AsyncIterable of parsed SSE events.
+   */
+  async *streamAsk(
+    data: { question: string; conversationId?: string },
+    signal?: AbortSignal,
+  ): AsyncGenerator<
+    { type: string; content?: string; answer?: string; documents?: any[]; sources?: string[]; error?: string },
+    void,
+    unknown
+  > {
+    const token = this.getToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${this.baseUrl}/ai/ask-stream`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+      signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Streaming request failed (${response.status}): ${errorText}`);
+    }
+
+    if (!response.body) {
+      throw new Error('No response body for streaming');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith(':')) continue;
+
+          if (trimmed.startsWith('data: ')) {
+            const dataStr = trimmed.slice(6);
+            try {
+              const event = JSON.parse(dataStr);
+              yield event;
+
+              if (event.type === 'end' || event.type === 'error') return;
+            } catch {
+              // Skip unparseable SSE events
+            }
+          }
+        }
+      }
+
+      // Process remaining buffer
+      if (buffer.trim()) {
+        const trimmed = buffer.trim();
+        if (trimmed.startsWith('data: ')) {
+          try {
+            yield JSON.parse(trimmed.slice(6));
+          } catch {
+            // Skip
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
 }
 
 // Export singleton instance

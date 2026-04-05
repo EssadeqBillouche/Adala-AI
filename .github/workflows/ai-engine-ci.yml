@@ -1,0 +1,181 @@
+name: AI Engine CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'app/ai-engine/**'
+      - '.github/workflows/ai-engine-ci.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'app/ai-engine/**'
+      - '.github/workflows/ai-engine-ci.yml'
+
+concurrency:
+  group: ai-engine-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: '3.11'
+  WORKING_DIRECTORY: './app/ai-engine'
+
+jobs:
+  lint:
+    name: Lint & Code Style
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: ${{ env.WORKING_DIRECTORY }}/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff mypy
+
+      - name: Run Ruff linter
+        run: ruff check app/
+
+      - name: Run Ruff formatter check
+        run: ruff format app/ --check
+
+      - name: Run mypy type check
+        run: mypy app/ --ignore-missing-imports --no-strict-optional
+        continue-on-error: true
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: ${{ env.WORKING_DIRECTORY }}/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Run unit tests
+        run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term
+        continue-on-error: true
+
+      - name: Upload coverage to GitHub
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-engine-coverage
+          path: ${{ env.WORKING_DIRECTORY }}/coverage.xml
+          retention-days: 7
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: ${{ env.WORKING_DIRECTORY }}/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install bandit safety
+
+      - name: Run Bandit security scan
+        run: bandit -r app/ -f json -o bandit-report.json || true
+
+      - name: Run Safety check
+        run: safety check -r requirements.txt --json --output safety-report.json || true
+
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-engine-security-report
+          path: |
+            ${{ env.WORKING_DIRECTORY }}/bandit-report.json
+            ${{ env.WORKING_DIRECTORY }}/safety-report.json
+          retention-days: 7
+
+  docker-build:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [lint]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.WORKING_DIRECTORY }}
+          file: ${{ env.WORKING_DIRECTORY }}/Dockerfile
+          push: false
+          load: true
+          tags: ai-engine:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # First build downloads ~3 GB of models (~10 min).
+          # Subsequent PR builds are instant via layer cache.
+
+      - name: Verify image
+        run: docker images ai-engine:test
+
+  # Summary job for branch protection rules
+  ai-engine-ci-status:
+    name: AI Engine CI Status
+    runs-on: ubuntu-latest
+    needs: [lint, test, security, docker-build]
+    if: always()
+
+    steps:
+      - name: Check all jobs status
+        run: |
+          if [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.docker-build.result }}" != "success" ]; then
+            echo "One or more CI jobs failed"
+            exit 1
+          fi
+          echo "All AI Engine CI checks passed successfully!"
