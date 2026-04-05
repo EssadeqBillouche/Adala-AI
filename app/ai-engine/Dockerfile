@@ -2,23 +2,22 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies for:
-# - Building native libraries (fastembed, qdrant-client)
-# - Curl for healthcheck
-RUN apt-get update && apt-get install -y \
+# System dependencies:
+#   build-essential  — compile native extensions (fastembed, qdrant-client)
+#   curl             — Docker healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Qdrant stores vectors externally (in qdrant service), no local storage needed
+# Install CPU-only PyTorch to avoid pulling ~4 GB of CUDA libraries
+RUN pip install --no-cache-dir -r requirements.txt \
+    --extra-index-url https://download.pytorch.org/whl/cpu
 
 COPY . .
 
 EXPOSE 8000
 
-# Let uvicorn bind to all interfaces directly so docker routing resolves it.
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
