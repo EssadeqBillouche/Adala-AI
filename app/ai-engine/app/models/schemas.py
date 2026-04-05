@@ -1,84 +1,101 @@
 """
-Pydantic models for AdalaAI Legal Engine request/response validation.
+Pydantic request / response models for the AI engine API.
+
+All models use Pydantic v2 syntax.  Field-level validators enforce input
+constraints before any business logic runs (fail-fast principle).
 """
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field, field_validator
+
+# Maximum characters allowed in a single document ingestion request
+_MAX_TEXT_LENGTH = 500_000  # ~500 KB
 
 
 class LegalQueryRequest(BaseModel):
-    """Request model for legal query endpoint."""
+    """Request body for ``POST /v1/ask``."""
+
     question: str = Field(
         ...,
         min_length=1,
         max_length=2000,
-        description="The legal question in Arabic, French, or English"
+        description="Legal question in Arabic, French, or English",
     )
     tenant_id: str = Field(
         ...,
         min_length=1,
-        description="Tenant identifier for multi-tenancy isolation"
+        max_length=128,
+        description="Tenant identifier for multi-tenant isolation",
     )
     n_results: int = Field(
         default=5,
         ge=1,
         le=20,
-        description="Number of documents to retrieve for RAG context"
+        description="Number of documents to retrieve (1–20)",
     )
     stream: bool = Field(
         default=True,
-        description="Whether to stream the response"
+        description="Return a streaming SSE response when true",
     )
 
 
 class DocumentChunk(BaseModel):
-    """Represents a retrieved legal document chunk."""
+    """A single retrieved document chunk returned to the client."""
+
     id: str
     content: str
     score: float
     metadata: Dict[str, Any] = Field(default_factory=dict)
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "id": "doc_123",
-                "content": "Article 1: The Constitution guarantees...",
-                "score": 0.92,
-                "metadata": {"article_number": "1", "source": "Moroccan Constitution"}
-            }
-        }
 
 
 class LegalQueryResponse(BaseModel):
-    """Response model for legal query endpoint (non-streaming)."""
+    """Response body for ``POST /v1/ask`` when ``stream=false``."""
+
     question: str
     answer: str
     documents: List[DocumentChunk] = Field(default_factory=list)
     sources: List[str] = Field(default_factory=list)
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "question": "What are the rights of the accused?",
-                "answer": "According to Article 23 of the Moroccan Constitution...",
-                "documents": [],
-                "sources": ["Moroccan Constitution - Article 23"]
-            }
-        }
-
-
-class StreamChunk(BaseModel):
-    """Individual chunk for streaming responses."""
-    type: str = Field(..., description="Type of chunk: 'start', 'content', 'end', 'error'")
-    content: Optional[str] = Field(default=None, description="Content for 'content' type chunks")
-    documents: Optional[List[DocumentChunk]] = Field(default=None, description="Retrieved documents for 'end' type")
-    error: Optional[str] = Field(default=None, description="Error message for 'error' type")
 
 
 class IngestDocumentRequest(BaseModel):
-    """Request model for document ingestion."""
-    text: str = Field(..., min_length=1, description="Document text content")
+    """Request body for ``POST /v1/documents``."""
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        description="Raw document text content",
+    )
     metadata: Dict[str, Any] = Field(
         default_factory=dict,
-        description="Document metadata including article_number, source, law_type, etc."
+        description="Document metadata (source, law_type, language, …)",
     )
-    doc_id: Optional[str] = Field(default=None, description="Optional document ID")
+    doc_id: Optional[str] = Field(
+        default=None,
+        max_length=128,
+        description="Optional stable document identifier",
+    )
+
+    @field_validator("text")
+    @classmethod
+    def text_not_too_long(cls, v: str) -> str:
+        if len(v) > _MAX_TEXT_LENGTH:
+            raise ValueError(
+                f"Text exceeds maximum length of {_MAX_TEXT_LENGTH} characters "
+                f"(got {len(v)})"
+            )
+        return v
+
+    @field_validator("metadata")
+    @classmethod
+    def metadata_keys_are_safe(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Reject metadata keys that could shadow internal fields.
+
+        This prevents a client from overwriting ``tenant_id`` or ``content``
+        in the Qdrant payload, which would break tenant isolation.
+        """
+        protected = {"tenant_id", "content", "parent_doc_id", "chunk_index", "total_chunks"}
+        for key in v:
+            if key in protected:
+                raise ValueError(f"Metadata key '{key}' is reserved and cannot be set by the client")
+        return v

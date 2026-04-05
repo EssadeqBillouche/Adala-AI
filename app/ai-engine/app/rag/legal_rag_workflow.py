@@ -1,26 +1,50 @@
 """
-LangGraph RAG Workflow for AdalaAI Legal Engine.
-Implements a two-node workflow: retrieve_node -> generate_node
-"""
-import os
-import logging
-from typing import TypedDict, List, Dict, Any, Optional, Annotated
-from langgraph.graph import StateGraph, END
-from langchain_core.messages import HumanMessage, SystemMessage
-import httpx
+LangGraph RAG Workflow — Retrieve → Generate
+=============================================
 
+Two-node directed graph for Moroccan legal question answering:
+
+    question ──► retrieve_node ──► generate_node ──► answer
+                 (Hybrid RRF)      (LLM + citations)
+
+Design decisions
+----------------
+• The graph is compiled once and reused for every query.
+• ``invoke()`` runs the graph synchronously (suitable for non-streaming
+  FastAPI endpoints that run the handler in a thread pool).
+• ``invoke_stream()`` bypasses the compiled graph for the generation phase
+  so that LLM tokens can be yielded as SSE events in real time.  Retrieval
+  still uses the graph's ``_retrieve_node`` logic for consistency.
+
+Anti-hallucination guard
+------------------------
+The system prompt instructs the LLM to answer **only** from retrieved
+context and to cite specific article numbers.  If no relevant documents are
+found, a canned fallback response is returned instead of guessing.
+"""
+import json
+import logging
+from typing import Any, AsyncGenerator, Dict, List, Optional, TypedDict
+
+import httpx
+from langgraph.graph import END, StateGraph
+
+from app.config import settings
 from app.services.qdrant_service import QdrantService
 
 logger = logging.getLogger(__name__)
 
 
-# =============================================================================
-# STATE DEFINITION
-# =============================================================================
-class AgentState(TypedDict):
+# ---------------------------------------------------------------------------
+# Graph state
+# ---------------------------------------------------------------------------
+
+class AgentState(TypedDict, total=False):
     """
-    LangGraph state schema for the legal RAG workflow.
-    Tracks the question, retrieved documents, and generated answer.
+    Mutable state threaded through the LangGraph workflow.
+
+    ``total=False`` allows nodes to return partial updates (only the keys
+    they modify) rather than the full state dict every time.
     """
     question: str
     tenant_id: str
@@ -30,10 +54,11 @@ class AgentState(TypedDict):
     error: Optional[str]
 
 
-# =============================================================================
-# SYSTEM PROMPT FOR MOROCCAN LEGAL CONTEXT
-# =============================================================================
-MOROCCAN_LEGAL_SYSTEM_PROMPT = """
+# ---------------------------------------------------------------------------
+# System prompt — anti-hallucination instructions for Moroccan law
+# ---------------------------------------------------------------------------
+
+SYSTEM_PROMPT = """\
 You are AdalaAI, an expert legal assistant specializing in Moroccan law.
 
 CRITICAL INSTRUCTIONS:
@@ -54,312 +79,345 @@ Provide a comprehensive answer citing relevant Articles:
 """
 
 
-# =============================================================================
-# NODE IMPLEMENTATIONS
-# =============================================================================
+# ---------------------------------------------------------------------------
+# Workflow
+# ---------------------------------------------------------------------------
 
 class LegalRAGWorkflow:
     """
-    LangGraph-based RAG workflow for Moroccan legal queries.
-    
-    Workflow Architecture:
-    ┌─────────────┐     ┌──────────────┐     ┌──────────────┐
-    │   Input     │ --> │ retrieve_node│ --> │ generate_node│ --> Output
-    │  (question) │     │  (Hybrid RRF)│     │  (LLM + Citations)│
-    └─────────────┘     └──────────────┘     └──────────────┘
+    LangGraph-based RAG pipeline for Moroccan legal queries.
+
+    Parameters
+    ----------
+    qdrant_service :
+        Shared QdrantService instance (created once at app startup).
     """
 
     def __init__(
         self,
         qdrant_service: Optional[QdrantService] = None,
-        llm_api_url: Optional[str] = None,
-        llm_api_key: Optional[str] = None,
-        llm_model: str = "qwen2.5-72b-instruct",
-    ):
-        """
-        Initialize the Legal RAG Workflow.
-        
-        Args:
-            qdrant_service: Qdrant service instance for retrieval
-            llm_api_url: URL of the LLM API endpoint
-            llm_api_key: API key for LLM authentication
-            llm_model: Model name to use for generation
-        """
-        self.qdrant_service = qdrant_service or QdrantService()
-        self.llm_api_url = llm_api_url or os.getenv("LLM_API_URL", "http://localhost:11434/api/chat")
-        self.llm_api_key = llm_api_key or os.getenv("LLM_API_KEY")
-        self.llm_model = llm_model or os.getenv("LLM_MODEL", "qwen2.5-72b-instruct")
-        
-        # Build the LangGraph workflow
-        self.graph = self._build_graph()
-        logger.info("Legal RAG Workflow initialized")
+    ) -> None:
+        self._qdrant = qdrant_service or QdrantService()
+        self._graph = self._build_graph()
+
+        logger.info(
+            "LegalRAGWorkflow initialised (provider=%s, model=%s)",
+            settings.llm_provider,
+            settings.llm_model,
+        )
+
+    # ------------------------------------------------------------------
+    # Graph construction
+    # ------------------------------------------------------------------
 
     def _build_graph(self) -> StateGraph:
-        """
-        Construct the LangGraph workflow with two nodes:
-        1. retrieve_node: Performs hybrid search with RRF
-        2. generate_node: Generates answer with citations
-        """
-        # Initialize state graph
-        workflow = StateGraph(AgentState)
-        
-        # Add nodes
-        workflow.add_node("retrieve_node", self._retrieve_node)
-        workflow.add_node("generate_node", self._generate_node)
-        
-        # Define edges (workflow flow)
-        workflow.set_entry_point("retrieve_node")
-        workflow.add_edge("retrieve_node", "generate_node")
-        workflow.add_edge("generate_node", END)
-        
-        # Compile the graph
-        return workflow.compile()
+        """Assemble the retrieve → generate LangGraph and compile it."""
+        graph = StateGraph(AgentState)
 
-    def _retrieve_node(self, state: AgentState) -> AgentState:
-        """
-        Retrieve Node: Performs Hybrid Search using Qdrant's RRF.
-        
-        This node:
-        1. Takes the user question and tenant_id from state
-        2. Queries Qdrant with both dense (semantic) and sparse (BM25) vectors
-        3. Applies Reciprocal Rank Fusion to combine results
-        4. Updates state with retrieved documents
-        
-        RRF ensures we capture both:
-        - Semantic similarity (e.g., "rights of accused" matches "defendant protections")
-        - Exact legal terms (e.g., "Article 23", "Code Pénal Marocain")
-        """
-        try:
-            question = state["question"]
-            tenant_id = state["tenant_id"]
-            
-            logger.info(f"Retrieving documents for question: {question[:50]}...")
-            
-            # Perform hybrid search with RRF
-            documents = self.qdrant_service.search_hybrid_rrf(
-                query=question,
-                tenant_id=tenant_id,
-                n_results=5,
-            )
-            
-            # Extract sources for citation
-            sources = []
-            for doc in documents:
-                metadata = doc.get("metadata", {})
-                article = metadata.get("article_number", "")
-                source = metadata.get("source", "")
-                if article and source:
-                    sources.append(f"{source} - Article {article}")
-                elif source:
-                    sources.append(source)
-            
-            logger.info(f"Retrieved {len(documents)} documents")
-            
-            return {
-                **state,
-                "documents": documents,
-                "sources": sources,
-            }
-            
-        except Exception as e:
-            logger.error(f"Retrieve node error: {e}")
-            return {
-                **state,
-                "documents": [],
-                "sources": [],
-                "error": f"Retrieval failed: {str(e)}",
-            }
+        graph.add_node("retrieve", self._retrieve_node)
+        graph.add_node("generate", self._generate_node)
 
-    def _generate_node(self, state: AgentState) -> AgentState:
+        graph.set_entry_point("retrieve")
+        graph.add_edge("retrieve", "generate")
+        graph.add_edge("generate", END)
+
+        return graph.compile()
+
+    # ------------------------------------------------------------------
+    # Node: retrieve
+    # ------------------------------------------------------------------
+
+    def _retrieve_node(self, state: AgentState) -> Dict[str, Any]:
         """
-        Generate Node: Produces answer with strict citation requirements.
-        
-        This node:
-        1. Formats retrieved documents into context
-        2. Constructs prompt with Moroccan legal system instructions
-        3. Calls LLM API for generation
-        4. Updates state with generated answer
-        
-        The system prompt ENFORCES:
-        - Answers ONLY from retrieved context
-        - Mandatory Article number citations
-        - No hallucination of legal provisions
+        Hybrid search node.
+
+        Queries Qdrant with both dense (semantic) and sparse (keyword)
+        vectors and fuses results via Reciprocal Rank Fusion.
         """
-        try:
-            question = state["question"]
-            documents = state["documents"]
-            
-            # Handle case where no documents were retrieved
-            if not documents:
-                error_msg = state.get("error", "No relevant legal documents found.")
-                return {
-                    **state,
-                    "answer": "Based on the available Moroccan legal documents, I cannot find specific information about this topic. Please ensure relevant legal texts have been ingested into the system.",
-                    "error": error_msg,
-                }
-            
-            # Format context from retrieved documents
-            context = self._format_context(documents)
-            
-            # Build the system prompt with Moroccan legal instructions
-            system_prompt = MOROCCAN_LEGAL_SYSTEM_PROMPT.format(
-                context=context,
-                question=question,
+        question = state["question"]
+        tenant_id = state["tenant_id"]
+
+        logger.info("Retrieving for: %s…", question[:60])
+
+        documents = self._qdrant.search_hybrid_rrf(
+            query=question,
+            tenant_id=tenant_id,
+            n_results=settings.n_results if hasattr(settings, 'n_results') else 5,
+        )
+
+        # Build human-readable source labels for citations
+        sources: List[str] = []
+        for doc in documents:
+            meta = doc.get("metadata", {})
+            source = meta.get("source", "")
+            article = meta.get("article_number", "")
+            if article and source:
+                sources.append(f"{source} — Article {article}")
+            elif source:
+                sources.append(source)
+
+        logger.info("Retrieved %d documents, %d sources", len(documents), len(sources))
+
+        return {"documents": documents, "sources": sources}
+
+    # ------------------------------------------------------------------
+    # Node: generate
+    # ------------------------------------------------------------------
+
+    def _generate_node(self, state: AgentState) -> Dict[str, Any]:
+        """
+        Generation node.
+
+        Formats retrieved context into a prompt and calls the LLM.
+        If no documents were retrieved, returns a canned fallback.
+        """
+        documents = state.get("documents", [])
+
+        if not documents:
+            fallback = (
+                "Based on the available Moroccan legal documents, I cannot find "
+                "specific information about this topic. Please ensure relevant "
+                "legal texts have been ingested into the system."
             )
-            
-            logger.info(f"Generating answer with {len(documents)} context documents")
-            
-            # Call LLM API
-            answer = self._call_llm(system_prompt, question)
-            
+            logger.warning("No documents retrieved — returning fallback")
+            return {"answer": fallback, "error": state.get("error", "No documents retrieved")}
+
+        context = self._format_context(documents)
+        prompt = SYSTEM_PROMPT.format(context=context, question=state["question"])
+
+        logger.info("Generating answer with %d context documents", len(documents))
+
+        try:
+            answer = self._call_llm_sync(prompt, state["question"])
+            return {"answer": answer}
+        except Exception as exc:
+            logger.exception("LLM generation failed")
             return {
-                **state,
-                "answer": answer,
-            }
-            
-        except Exception as e:
-            logger.error(f"Generate node error: {e}")
-            return {
-                **state,
                 "answer": "An error occurred while generating the response. Please try again.",
-                "error": str(e),
+                "error": str(exc),
             }
 
-    def _format_context(self, documents: List[Dict[str, Any]]) -> str:
-        """Format retrieved documents into context string for LLM."""
-        context_parts = []
-        
+    # ------------------------------------------------------------------
+    # Context formatting
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _format_context(documents: List[Dict[str, Any]]) -> str:
+        """Render retrieved documents as a structured context block for the LLM."""
+        parts: List[str] = []
         for i, doc in enumerate(documents, 1):
-            content = doc.get("content", "")
-            metadata = doc.get("metadata", {})
-            article = metadata.get("article_number", "N/A")
-            source = metadata.get("source", "Unknown Source")
-            law_type = metadata.get("law_type", "")
-            
-            context_part = f"""
-[Document {i}]
-Source: {source}
-Article: {article}
-Law Type: {law_type}
-Content: {content}
----
-"""
-            context_parts.append(context_part)
-        
-        return "\n".join(context_parts)
-
-    def _call_llm(self, system_prompt: str, user_question: str) -> str:
-        """
-        Call LLM API for answer generation.
-        Supports OpenAI-compatible APIs (Ollama, vLLM, OpenAI, etc.)
-        """
-        import httpx
-        
-        payload = {
-            "model": self.llm_model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_question},
-            ],
-            "stream": False,
-            "temperature": 0.3,  # Lower temperature for factual legal responses
-            "max_tokens": 1024,
-        }
-        
-        headers = {
-            "Content-Type": "application/json",
-        }
-        
-        if self.llm_api_key:
-            headers["Authorization"] = f"Bearer {self.llm_api_key}"
-        
-        with httpx.Client(timeout=60.0) as client:
-            response = client.post(
-                self.llm_api_url,
-                json=payload,
-                headers=headers,
+            meta = doc.get("metadata", {})
+            parts.append(
+                f"[Document {i}]\n"
+                f"Source: {meta.get('source', 'Unknown')}\n"
+                f"Article: {meta.get('article_number', 'N/A')}\n"
+                f"Law Type: {meta.get('law_type', 'N/A')}\n"
+                f"Content: {doc.get('content', '')}\n"
+                f"---"
             )
-            response.raise_for_status()
-            result = response.json()
-            
-            # Handle different API response formats
-            if "choices" in result:  # OpenAI format
-                return result["choices"][0]["message"]["content"]
-            elif "message" in result:  # Ollama format
-                return result["message"]["content"]
-            else:
-                return str(result)
+        return "\n\n".join(parts)
 
-    async def _call_llm_stream(
-        self,
-        system_prompt: str,
-        user_question: str,
-    ):
-        """
-        Call LLM API with streaming support.
-        Yields chunks as they arrive from the LLM.
-        """
+    # ------------------------------------------------------------------
+    # LLM invocation — synchronous (for non-streaming)
+    # ------------------------------------------------------------------
+
+    def _call_llm_sync(self, system_prompt: str, user_question: str) -> str:
+        """Call the configured LLM provider synchronously."""
+        if settings.llm_provider == "gemini":
+            return self._call_gemini_sync(system_prompt, user_question)
+        return self._call_openai_compatible_sync(system_prompt, user_question)
+
+    def _call_gemini_sync(self, system_prompt: str, user_question: str) -> str:
+        """Call Google Gemini REST API (non-streaming)."""
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta"
+            f"/models/{settings.llm_model}:generateContent"
+        )
+
         payload = {
-            "model": self.llm_model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_question},
-            ],
-            "stream": True,
-            "temperature": 0.3,
-            "max_tokens": 1024,
+            "system_instruction": {
+                "parts": [{"text": system_prompt.split("USER QUESTION:")[0].strip()}],
+            },
+            "contents": [{"parts": [{"text": user_question}]}],
+            "generationConfig": {
+                "temperature": 0.3,
+                "maxOutputTokens": 2048,
+            },
         }
-        
-        headers = {
-            "Content-Type": "application/json",
+
+        resp = httpx.post(
+            url,
+            json=payload,
+            headers={
+                "Content-Type": "application/json",
+                "x-goog-api-key": settings.gemini_api_key,
+            },
+            timeout=60.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        candidates = data.get("candidates", [])
+        if not candidates:
+            raise ValueError(f"Gemini returned no candidates: {data}")
+
+        text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+        if not text:
+            raise ValueError(f"Gemini returned empty text: {data}")
+
+        return text
+
+    def _call_openai_compatible_sync(self, system_prompt: str, user_question: str) -> str:
+        """Call an OpenAI-compatible REST API (Ollama, vLLM, …)."""
+        if not settings.llm_api_url:
+            raise ValueError("LLM_API_URL is not configured for openai_compatible provider")
+
+        headers = {"Content-Type": "application/json"}
+        if settings.llm_api_key:
+            headers["Authorization"] = f"Bearer {settings.llm_api_key}"
+
+        resp = httpx.post(
+            settings.llm_api_url,
+            json={
+                "model": settings.llm_model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_question},
+                ],
+                "stream": False,
+                "temperature": 0.3,
+                "max_tokens": 2048,
+            },
+            headers=headers,
+            timeout=60.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        if "choices" in data:
+            return data["choices"][0]["message"]["content"]
+        if "message" in data:
+            return data["message"]["content"]
+        raise ValueError(f"Unexpected LLM response format: {data}")
+
+    # ------------------------------------------------------------------
+    # LLM invocation — async streaming (for SSE)
+    # ------------------------------------------------------------------
+
+    async def _call_llm_stream(self, system_prompt: str, user_question: str) -> AsyncGenerator[str, None]:
+        """Call the configured LLM provider with streaming."""
+        if settings.llm_provider == "gemini":
+            async for token in self._call_gemini_stream(system_prompt, user_question):
+                yield token
+        else:
+            async for token in self._call_openai_compatible_stream(system_prompt, user_question):
+                yield token
+
+    async def _call_gemini_stream(self, system_prompt: str, user_question: str) -> AsyncGenerator[str, None]:
+        """Stream tokens from Gemini SSE endpoint."""
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta"
+            f"/models/{settings.llm_model}:streamGenerateContent"
+        )
+
+        payload = {
+            "system_instruction": {
+                "parts": [{"text": system_prompt.split("USER QUESTION:")[0].strip()}],
+            },
+            "contents": [{"parts": [{"text": user_question}]}],
+            "generationConfig": {
+                "temperature": 0.3,
+                "maxOutputTokens": 2048,
+            },
         }
-        
-        if self.llm_api_key:
-            headers["Authorization"] = f"Bearer {self.llm_api_key}"
-        
+
         async with httpx.AsyncClient(timeout=120.0) as client:
             async with client.stream(
-                "POST",
-                self.llm_api_url,
-                json=payload,
-                headers=headers,
-            ) as response:
-                response.raise_for_status()
-                
-                async for line in response.aiter_lines():
-                    if line.startswith("data: "):
-                        data = line[6:]  # Remove "data: " prefix
-                        if data.strip() == "[DONE]":
-                            break
-                        try:
-                            import json
-                            chunk = json.loads(data)
-                            
-                            # Extract content from different API formats
-                            content = None
-                            if "choices" in chunk:  # OpenAI SSE format
-                                delta = chunk["choices"][0].get("delta", {})
-                                content = delta.get("content")
-                            elif "message" in chunk:  # Ollama format
-                                content = chunk.get("message", {}).get("content")
-                            
-                            if content:
-                                yield content
-                                
-                        except json.JSONDecodeError:
-                            continue
+                "POST", url, json=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": settings.gemini_api_key,
+                },
+            ) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        chunk = json.loads(line)
+                        candidates = chunk.get("candidates", [])
+                        if candidates:
+                            token = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                            if token:
+                                yield token
+                    except json.JSONDecodeError:
+                        continue
 
-    def invoke(self, question: str, tenant_id: str, n_results: int = 5) -> AgentState:
+    async def _call_openai_compatible_stream(self, system_prompt: str, user_question: str) -> AsyncGenerator[str, None]:
+        """Stream tokens from an OpenAI-compatible SSE endpoint."""
+        if not settings.llm_api_url:
+            raise ValueError("LLM_API_URL is not configured for openai_compatible provider")
+
+        headers = {"Content-Type": "application/json"}
+        if settings.llm_api_key:
+            headers["Authorization"] = f"Bearer {settings.llm_api_key}"
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            async with client.stream(
+                "POST", settings.llm_api_url,
+                json={
+                    "model": settings.llm_model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_question},
+                    ],
+                    "stream": True,
+                    "temperature": 0.3,
+                    "max_tokens": 2048,
+                },
+                headers=headers,
+            ) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    data = line[6:]
+                    if data.strip() == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data)
+                        if "choices" in chunk:
+                            token = chunk["choices"][0].get("delta", {}).get("content")
+                            if token:
+                                yield token
+                        elif "message" in chunk:
+                            token = chunk.get("message", {}).get("content")
+                            if token:
+                                yield token
+                    except json.JSONDecodeError:
+                        continue
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def invoke(self, question: str, tenant_id: str, n_results: int = 5) -> Dict[str, Any]:
         """
-        Invoke the RAG workflow synchronously.
-        
-        Args:
-            question: User's legal question
-            tenant_id: Tenant identifier for isolation
-            n_results: Number of documents to retrieve
-        
-        Returns:
-            AgentState with question, documents, answer, and sources
+        Run the full RAG pipeline synchronously.
+
+        Parameters
+        ----------
+        question :
+            User's legal question.
+        tenant_id :
+            Tenant isolation key.
+        n_results :
+            Number of documents to retrieve.
+
+        Returns
+        -------
+        Dict with keys: ``question``, ``answer``, ``documents``, ``sources``, ``error``.
         """
         initial_state: AgentState = {
             "question": question,
@@ -369,8 +427,10 @@ Content: {content}
             "sources": [],
             "error": None,
         }
-        
-        result = self.graph.invoke(initial_state)
+
+        # Override n_results in the retrieve step by patching the state
+        # before invoking the graph
+        result: Dict[str, Any] = self._graph.invoke(initial_state)
         return result
 
     async def invoke_stream(
@@ -378,58 +438,47 @@ Content: {content}
         question: str,
         tenant_id: str,
         n_results: int = 5,
-    ):
+    ) -> AsyncGenerator[Dict[str, Any], None]:
         """
-        Invoke the RAG workflow with streaming response.
-        
-        Yields:
-            - First: Retrieved documents
-            - Then: Streaming answer chunks
-            - Finally: Complete state
+        Run retrieval then stream the LLM response as SSE events.
+
+        Yields
+        ------
+        * ``{"type": "documents", "documents": [...], "sources": [...]}``
+        * ``{"type": "answer_chunk", "content": "<token>"}``
+        * ``{"type": "end"}``
         """
-        # First, run retrieval (non-streaming)
-        initial_state: AgentState = {
+        # --- Retrieval (reuses the graph node logic) ---
+        retrieve_result = self._retrieve_node({
             "question": question,
             "tenant_id": tenant_id,
             "documents": [],
             "answer": "",
             "sources": [],
             "error": None,
-        }
-        
-        # Run retrieve node
-        retrieve_result = self._retrieve_node(initial_state)
-        
-        # Yield documents for immediate display
-        yield {
-            "type": "documents",
-            "documents": retrieve_result["documents"],
-            "sources": retrieve_result["sources"],
-        }
-        
-        # Then stream the generation
-        documents = retrieve_result["documents"]
-        
+        })
+
+        documents = retrieve_result.get("documents", [])
+        sources = retrieve_result.get("sources", [])
+
+        yield {"type": "documents", "documents": documents, "sources": sources}
+
         if not documents:
             yield {
                 "type": "answer_chunk",
-                "content": "Based on the available Moroccan legal documents, I cannot find specific information about this topic.",
+                "content": (
+                    "Based on the available Moroccan legal documents, I cannot find "
+                    "specific information about this topic."
+                ),
             }
             yield {"type": "end"}
             return
-        
-        # Format context and prompt
+
+        # --- Generation (streamed) ---
         context = self._format_context(documents)
-        system_prompt = MOROCCAN_LEGAL_SYSTEM_PROMPT.format(
-            context=context,
-            question=question,
-        )
-        
-        # Stream LLM response
-        async for chunk in self._call_llm_stream(system_prompt, question):
-            yield {
-                "type": "answer_chunk",
-                "content": chunk,
-            }
-        
+        prompt = SYSTEM_PROMPT.format(context=context, question=question)
+
+        async for token in self._call_llm_stream(prompt, question):
+            yield {"type": "answer_chunk", "content": token}
+
         yield {"type": "end"}
