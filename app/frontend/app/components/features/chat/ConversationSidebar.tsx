@@ -11,11 +11,13 @@ import { api, type Conversation } from "../../../lib/api";
 interface ConversationSidebarProps {
   currentConversationId?: string;
   onConversationSelect: (conversation: Conversation) => void;
+  onCreateNewConversation?: () => void;
 }
 
 export default function ConversationSidebar({
   currentConversationId,
   onConversationSelect,
+  onCreateNewConversation,
 }: ConversationSidebarProps) {
   const router = useRouter();
   const { user, logout, isAuthenticated } = useAuth();
@@ -46,9 +48,13 @@ export default function ConversationSidebar({
     router.push("/auth/login");
   };
 
-  const handleNewConversation = () => {
-    // Reload the page to create a new conversation
-    window.location.reload();
+  const handleNewConversation = async () => {
+    if (onCreateNewConversation) {
+      onCreateNewConversation();
+    } else {
+      // Fallback: reload the page to create a new conversation
+      window.location.reload();
+    }
   };
 
   const formatDate = (dateString: string) => {
