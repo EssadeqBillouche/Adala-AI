@@ -46,11 +46,16 @@ function ConsultAIContent() {
           })));
         } else {
           const projects = await api.getProjects();
-          let projectId = projects[0]?.id;
+          let projectId: string | undefined = projects[0]?.id;
 
           if (!projectId) {
             const newProject = await api.createProject({ title: "My First Case" });
             projectId = newProject.id;
+          }
+
+          if (!projectId) {
+            console.error("Failed to obtain a valid project ID");
+            return;
           }
 
           const newConversation = await api.createConversation({
