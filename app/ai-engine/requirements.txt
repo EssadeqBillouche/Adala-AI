@@ -31,4 +31,6 @@ httpx>=0.27.0                     # Sync + async, used for Gemini / OpenAI calls
 aiohttp>=3.10.0
 
 # --- PDF processing ---
-PyPDF2>=3.0.0                     # PDF text extraction
+PyPDF2>=3.0.0                     # PDF text extraction (legacy pipeline)
+docling>=2.0.0                    # Modern PDF-to-Markdown with table & layout support
+tqdm>=4.65.0                      # Progress bars for batch processing
