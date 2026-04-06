@@ -1,14 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { signup, isLoading, error, clearError } = useAuth();
-  
+  const { signup, isLoading, error, clearError, isAuthenticated } = useAuth();
+
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push("/dashboard");
+    }
+  }, [isAuthenticated, router]);
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
