@@ -13,31 +13,9 @@ jest.mock('../lib/api', () => ({
   },
 }));
 
-// Mock localStorage
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: jest.fn((key: string) => store[key] || null),
-    setItem: jest.fn((key: string, value: string) => {
-      store[key] = value;
-    }),
-    removeItem: jest.fn((key: string) => {
-      delete store[key];
-    }),
-    clear: jest.fn(() => {
-      store = {};
-    }),
-  };
-})();
-
-Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock,
-});
-
 describe('AuthContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    localStorageMock.clear();
   });
 
   describe('useAuth hook', () => {
@@ -77,7 +55,7 @@ describe('AuthContext', () => {
       expect(result.current.error).toBeNull();
     });
 
-    it('checks for existing token on mount when token exists', async () => {
+    it('checks for existing session on mount', async () => {
       const mockUser = {
         id: '1',
         email: 'test@example.com',
@@ -90,7 +68,6 @@ describe('AuthContext', () => {
         updatedAt: '2024-01-01T00:00:00Z',
       };
 
-      localStorageMock.getItem.mockReturnValue('fake-token');
       (api.getProfile as jest.Mock).mockResolvedValue(mockUser);
 
       const { result } = renderHook(() => useAuth(), { wrapper });
@@ -104,8 +81,8 @@ describe('AuthContext', () => {
       expect(api.getProfile).toHaveBeenCalledTimes(1);
     });
 
-    it('sets unauthenticated when no token exists on mount', async () => {
-      localStorageMock.getItem.mockReturnValue(null);
+    it('sets unauthenticated when no valid session exists on mount', async () => {
+      (api.getProfile as jest.Mock).mockRejectedValue(new Error('Unauthorized'));
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -115,11 +92,9 @@ describe('AuthContext', () => {
 
       expect(result.current.isAuthenticated).toBe(false);
       expect(result.current.user).toBeNull();
-      expect(api.getProfile).not.toHaveBeenCalled();
     });
 
     it('handles auth check failure gracefully', async () => {
-      localStorageMock.getItem.mockReturnValue('invalid-token');
       (api.getProfile as jest.Mock).mockRejectedValue(new Error('Invalid token'));
 
       const { result } = renderHook(() => useAuth(), { wrapper });
@@ -130,7 +105,6 @@ describe('AuthContext', () => {
 
       expect(result.current.isAuthenticated).toBe(false);
       expect(result.current.user).toBeNull();
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('auth_token');
     });
   });
 
