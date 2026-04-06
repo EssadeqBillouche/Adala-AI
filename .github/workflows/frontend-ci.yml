@@ -80,7 +80,7 @@ jobs:
         run: npm run test:coverage -- --coverageReporters=json --coverageReporters=text
 
       - name: Upload coverage to GitHub
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-coverage-node${{ matrix.node-version }}
           path: ${{ env.WORKING_DIRECTORY }}/coverage
@@ -88,7 +88,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-test-results-node${{ matrix.node-version }}
           path: ${{ env.WORKING_DIRECTORY }}/coverage
@@ -131,7 +131,7 @@ jobs:
           ls -la .next/
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-build
           path: ${{ env.WORKING_DIRECTORY }}/.next
@@ -196,7 +196,7 @@ jobs:
 
       - name: Upload Lighthouse results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lighthouse-report
           path: .lighthouseci
