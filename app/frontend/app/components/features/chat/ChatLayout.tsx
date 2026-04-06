@@ -42,6 +42,7 @@ interface ChatLayoutProps {
   };
   currentConversationId?: string;
   onConversationSelect?: (conversation: Conversation) => void;
+  onCreateNewConversation?: () => void;
 }
 
 export default function ChatLayout({
@@ -75,6 +76,7 @@ export default function ChatLayout({
   caseContext,
   currentConversationId,
   onConversationSelect,
+  onCreateNewConversation,
 }: ChatLayoutProps) {
   return (
     <div className="min-h-screen bg-surface flex">
@@ -83,6 +85,7 @@ export default function ChatLayout({
         <ConversationSidebar 
           currentConversationId={currentConversationId}
           onConversationSelect={onConversationSelect}
+          onCreateNewConversation={onCreateNewConversation}
         />
       ) : (
         <Sidebar variant="vertical" />
