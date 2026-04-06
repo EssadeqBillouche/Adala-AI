@@ -103,7 +103,7 @@ export default function ChatLayout({
                 )
               )}
 
-              {actions.length > 0 && (
+              {actions.length > 0 && messages.length === 0 && (
                 <div className="mb-8">
                   <ActionCards actions={actions} />
                 </div>
