@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { api, type Conversation } from "../../lib/api";
+import { api, type Conversation } from "../../../lib/api";
 
 interface ConversationHistoryProps {
   currentConversationId?: string;
