@@ -73,6 +73,37 @@ function ConsultAIContent() {
     initConversation();
   }, []);
 
+  const handleConversationSelect = async (selectedConversation: Conversation) => {
+    // Cancel any ongoing streaming request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    setConversation(selectedConversation);
+    setIsLoading(true);
+    setMessages([]);
+    setShowTyping(false);
+
+    try {
+      const msgs = await api.getMessages(selectedConversation.id);
+      setMessages(msgs.map(msg => ({
+        id: msg.id,
+        type: msg.role === "USER" ? "user" : "ai" as const,
+        content: msg.content,
+        timestamp: new Date(msg.createdAt).toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true
+        }),
+        senderName: msg.role === "ASSISTANT" ? "Majlis Counsel" : undefined,
+      })));
+    } catch (error) {
+      console.error("Failed to load messages:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSendMessage = async (message: string) => {
     if (!conversation || !message.trim()) return;
 
@@ -247,6 +278,8 @@ function ConsultAIContent() {
         showTyping={showTyping}
         onSendMessage={handleSendMessage}
         onAttachFile={handleAttachFile}
+        currentConversationId={conversation?.id}
+        onConversationSelect={handleConversationSelect}
         caseContext={{
           reference: conversation?.id ? `MD-${conversation.id.slice(0, 8).toUpperCase()}` : "NEW",
           summary: "AI-powered legal consultation session. Ask questions about Moroccan law and get citations from official legal sources.",
