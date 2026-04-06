@@ -19,11 +19,13 @@ export class TenancyService {
     }
 
     return this.dataSource.transaction(async (manager) => {
-      // 1. SET LOCAL applies the variable strictly to the current transaction
-      // 2. We use ::text to securely map UUIDs to the RLS policy evaluation
-      await manager.query(`SET LOCAL "app.current_tenant_id" = $1`, [tenantId]);
-      
-      // 3. Now run the safe DB operation seamlessly
+      // SET LOCAL applies the variable strictly to the current transaction.
+      // SET doesn't support $N parameters, so we safely interpolate the UUID.
+      await manager.query(
+        `SET LOCAL "app.current_tenant_id" = '${tenantId}'`,
+      );
+
+      // Now run the safe DB operation seamlessly
       return operation(manager);
     });
   }
