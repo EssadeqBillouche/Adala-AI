@@ -11,7 +11,7 @@ import ActionCards from "./ActionCards";
 import ChatInput from "./ChatInput";
 import CaseSidebar from "./CaseSidebar";
 import ConversationSidebar from "./ConversationSidebar";
-import { type Conversation } from "../../lib/api";
+import { type Conversation } from "../../../lib/api";
 
 export interface Message {
   id: string;
