@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { TransformInterceptor } from './common/Interceptors/transform.interceptor';
@@ -10,6 +11,9 @@ import { TransformInterceptor } from './common/Interceptors/transform.intercepto
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+
+  // Parse cookies for HTTP-only cookie auth
+  app.use(cookieParser());
 
   // Security headers (X-Content-Type-Options, HSTS, X-Frame-Options, etc.)
   app.use(helmet());

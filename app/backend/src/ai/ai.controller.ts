@@ -28,30 +28,27 @@ export class AiController {
     @CurrentUser() user: any,
     @Res() res: Response,
   ) {
-    // Use the user's org ID as the tenant identifier
     const tenantId = user.orgId;
 
     this.logger.log(`Streaming request for tenant: ${tenantId}`);
 
-    // Set SSE headers
+    // Set SSE headers — must be set before any data is written
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
+    // Disable Express's default chunked encoding buffering
+    res.flushHeaders();
 
     try {
+      // Stream each SSE event as soon as it arrives — no buffering
       for await (const event of this.aiEngineService.streamAsk({
         question: body.question,
         tenant_id: tenantId,
         n_results: 5,
       })) {
-        // Forward the SSE event to the client
-        res.write(`data: ${JSON.stringify(event)}\n\n`);
-
-        // Flush the response
-        if ((res as any).flush) {
-          (res as any).flush();
-        }
+        const chunk = `data: ${JSON.stringify(event)}\n\n`;
+        res.write(chunk);
       }
     } catch (error) {
       this.logger.error('Error in SSE relay', error);
