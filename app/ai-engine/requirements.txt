@@ -29,3 +29,6 @@ httpx>=0.27.0                     # Sync + async, used for Gemini / OpenAI calls
 
 # --- Async utilities ---
 aiohttp>=3.10.0
+
+# --- PDF processing ---
+PyPDF2>=3.0.0                     # PDF text extraction

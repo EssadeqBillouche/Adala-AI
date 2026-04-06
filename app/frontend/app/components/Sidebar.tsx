@@ -165,13 +165,13 @@ export default function Sidebar({ variant = "vertical" }: SidebarProps) {
   return (
     <header className="sticky top-0 z-40 frosted-nav border-b border-surface-container-high/50 shadow-ambient" role="banner">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <Link href="/dashboard" className="flex items-center gap-8 group">
-          <div>
+        {/* Logo + Nav */}
+        <div className="flex items-center gap-8">
+          <Link href="/dashboard" className="flex items-center group shrink-0">
             <h1 className="font-serif text-xl font-semibold text-primary group-hover:text-primary-container transition-colors duration-200">
               Majlis Digital
             </h1>
-          </div>
+          </Link>
 
           {/* Top Nav */}
           <nav className="flex items-center gap-1" aria-label="Main navigation">
@@ -209,7 +209,7 @@ export default function Sidebar({ variant = "vertical" }: SidebarProps) {
               MY CASES
             </Link>
           </nav>
-        </Link>
+        </div>
 
         {/* Right Actions */}
         <div className="flex items-center gap-4">

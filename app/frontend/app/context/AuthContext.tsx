@@ -46,13 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const token = localStorage.getItem("auth_token");
-        if (!token) {
-          setState((prev) => ({ ...prev, isAuthenticated: false, isLoading: false }));
-          return;
-        }
-
-        // Fetch current user from backend
+        // Cookie-based auth — just try to fetch the profile
         const user = await api.getProfile();
         setState({
           user,
@@ -61,8 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           error: null,
         });
       } catch (error) {
-        console.error("Auth check failed:", error);
-        localStorage.removeItem("auth_token");
+        // No valid session — user needs to log in
         setState((prev) => ({ ...prev, isAuthenticated: false, isLoading: false }));
       }
     };

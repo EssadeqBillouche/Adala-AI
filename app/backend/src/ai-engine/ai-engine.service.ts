@@ -108,32 +108,34 @@ export class AiEngineService implements OnModuleInit {
         buffer += decoder.decode(value, { stream: true });
 
         // SSE events are separated by double newlines
-        const lines = buffer.split('\n');
+        const parts = buffer.split('\n\n');
         // Keep the last incomplete chunk in the buffer
-        buffer = lines.pop() || '';
+        buffer = parts.pop() || '';
 
-        for (const line of lines) {
-          const trimmed = line.trim();
+        for (const part of parts) {
+          const trimmed = part.trim();
           if (!trimmed || trimmed.startsWith(':')) {
-            // Skip empty lines and comments
             continue;
           }
 
-          if (trimmed.startsWith('data: ')) {
-            const dataStr = trimmed.slice(6); // Remove 'data: ' prefix
-            try {
-              const event: AiEngineSseEvent = JSON.parse(dataStr);
-              yield event;
+          // Extract data lines (handle multi-line data: prefix)
+          const dataLines = trimmed
+            .split('\n')
+            .filter((line) => line.startsWith('data: '))
+            .map((line) => line.slice(6))
+            .join('');
 
-              // Stop after 'end' or 'error' events
-              if (event.type === 'end' || event.type === 'error') {
-                return;
-              }
-            } catch (parseError) {
-              this.logger.warn(
-                `Failed to parse SSE event: ${dataStr}`,
-              );
+          if (!dataLines) continue;
+
+          try {
+            const event: AiEngineSseEvent = JSON.parse(dataLines);
+            yield event;
+
+            if (event.type === 'end' || event.type === 'error') {
+              return;
             }
+          } catch (parseError) {
+            this.logger.warn(`Failed to parse SSE event: ${dataLines}`);
           }
         }
       }
@@ -141,15 +143,18 @@ export class AiEngineService implements OnModuleInit {
       // Process any remaining buffer content
       if (buffer.trim()) {
         const trimmed = buffer.trim();
-        if (trimmed.startsWith('data: ')) {
-          const dataStr = trimmed.slice(6);
+        const dataLines = trimmed
+          .split('\n')
+          .filter((line) => line.startsWith('data: '))
+          .map((line) => line.slice(6))
+          .join('');
+
+        if (dataLines) {
           try {
-            const event: AiEngineSseEvent = JSON.parse(dataStr);
+            const event: AiEngineSseEvent = JSON.parse(dataLines);
             yield event;
           } catch {
-            this.logger.warn(
-              `Failed to parse final SSE event: ${dataStr}`,
-            );
+            this.logger.warn(`Failed to parse final SSE event: ${dataLines}`);
           }
         }
       }

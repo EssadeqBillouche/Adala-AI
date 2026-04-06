@@ -5,5 +5,8 @@ __pycache__
 *.md
 .venv
 venv
-.model-cache
 download-models.sh
+data/
+tests/
+.pytest_cache/
+*.egg-info/

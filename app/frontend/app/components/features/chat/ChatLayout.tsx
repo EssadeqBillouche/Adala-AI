@@ -10,6 +10,8 @@ import TypingIndicator from "./TypingIndicator";
 import ActionCards from "./ActionCards";
 import ChatInput from "./ChatInput";
 import CaseSidebar from "./CaseSidebar";
+import ConversationSidebar from "./ConversationSidebar";
+import { type Conversation } from "../../../lib/api";
 
 export interface Message {
   id: string;
@@ -38,6 +40,9 @@ interface ChatLayoutProps {
     documents?: Array<{ id: string; fileName: string; uploadedAt: string }>;
     legalFoundation?: Array<{ id: string; title: string; description: string; color?: "primary" | "secondary" }>;
   };
+  currentConversationId?: string;
+  onConversationSelect?: (conversation: Conversation) => void;
+  onCreateNewConversation?: () => void;
 }
 
 export default function ChatLayout({
@@ -69,11 +74,22 @@ export default function ChatLayout({
   onSendMessage,
   onAttachFile,
   caseContext,
+  currentConversationId,
+  onConversationSelect,
+  onCreateNewConversation,
 }: ChatLayoutProps) {
   return (
     <div className="min-h-screen bg-surface flex">
-      {/* Sidebar */}
-      <Sidebar variant="vertical" />
+      {/* Conversation Sidebar with History */}
+      {currentConversationId && onConversationSelect ? (
+        <ConversationSidebar 
+          currentConversationId={currentConversationId}
+          onConversationSelect={onConversationSelect}
+          onCreateNewConversation={onCreateNewConversation}
+        />
+      ) : (
+        <Sidebar variant="vertical" />
+      )}
 
       {/* Main Content */}
       <main className="flex-1 ml-64 flex flex-col">
@@ -103,7 +119,7 @@ export default function ChatLayout({
                 )
               )}
 
-              {actions.length > 0 && (
+              {actions.length > 0 && messages.length === 0 && (
                 <div className="mb-8">
                   <ActionCards actions={actions} />
                 </div>
