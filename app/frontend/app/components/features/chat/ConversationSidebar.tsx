@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../../context/AuthContext";
-import Avatar from "../design/Avatar";
-import Label from "../design/Label";
-import { api, type Conversation } from "../../lib/api";
+import { useAuth } from "../../../context/AuthContext";
+import Avatar from "../../design/Avatar";
+import Label from "../../design/Label";
+import { api, type Conversation } from "../../../lib/api";
 
 interface ConversationSidebarProps {
   currentConversationId?: string;
