@@ -33,7 +33,7 @@ export interface RegisterRequest {
 }
 
 export interface AuthResponse {
-  access_token: string;
+  access_token?: string; // Now set as HTTP-only cookie, not returned in body
   user: User;
 }
 
@@ -146,49 +146,18 @@ class ApiClient {
   }
 
   /**
-   * Get the current auth token from localStorage
+   * Build headers for API requests.
+   * Auth is handled via HTTP-only cookies sent automatically by the browser.
    */
-  private getToken(): string | null {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('auth_token');
-  }
-
-  /**
-   * Set the auth token in localStorage
-   */
-  private setToken(token: string): void {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem('auth_token', token);
-  }
-
-  /**
-   * Remove the auth token from localStorage
-   */
-  private removeToken(): void {
-    if (typeof window === 'undefined') return;
-    localStorage.removeItem('auth_token');
-  }
-
-  /**
-   * Build headers with optional auth token
-   */
-  private getHeaders(includeAuth: boolean = true): HeadersInit {
-    const headers: HeadersInit = {
+  private getHeaders(): HeadersInit {
+    return {
       'Content-Type': 'application/json',
     };
-
-    if (includeAuth) {
-      const token = this.getToken();
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-    }
-
-    return headers;
   }
 
   /**
-   * Handle API response and errors
+   * Handle API response and errors.
+   * Unwraps the TransformInterceptor envelope: { statusCode, message, data, timestamp }
    */
   private async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
@@ -212,16 +181,19 @@ class ApiClient {
       throw error;
     }
 
-    return response.json();
+    const json = await response.json();
+    // Unwrap TransformInterceptor envelope
+    return json.data as T;
   }
 
   /**
    * Generic GET request
    */
-  private async get<T>(endpoint: string, includeAuth: boolean = true): Promise<T> {
+  private async get<T>(endpoint: string): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'GET',
-      headers: this.getHeaders(includeAuth),
+      headers: this.getHeaders(),
+      credentials: 'include',
     });
     return this.handleResponse<T>(response);
   }
@@ -229,11 +201,12 @@ class ApiClient {
   /**
    * Generic POST request
    */
-  private async post<T>(endpoint: string, data?: unknown, includeAuth: boolean = true): Promise<T> {
+  private async post<T>(endpoint: string, data?: unknown): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'POST',
-      headers: this.getHeaders(includeAuth),
+      headers: this.getHeaders(),
       body: data ? JSON.stringify(data) : undefined,
+      credentials: 'include',
     });
     return this.handleResponse<T>(response);
   }
@@ -241,11 +214,12 @@ class ApiClient {
   /**
    * Generic PUT request
    */
-  private async put<T>(endpoint: string, data?: unknown, includeAuth: boolean = true): Promise<T> {
+  private async put<T>(endpoint: string, data?: unknown): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'PUT',
-      headers: this.getHeaders(includeAuth),
+      headers: this.getHeaders(),
       body: data ? JSON.stringify(data) : undefined,
+      credentials: 'include',
     });
     return this.handleResponse<T>(response);
   }
@@ -253,11 +227,12 @@ class ApiClient {
   /**
    * Generic PATCH request
    */
-  private async patch<T>(endpoint: string, data?: unknown, includeAuth: boolean = true): Promise<T> {
+  private async patch<T>(endpoint: string, data?: unknown): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'PATCH',
-      headers: this.getHeaders(includeAuth),
+      headers: this.getHeaders(),
       body: data ? JSON.stringify(data) : undefined,
+      credentials: 'include',
     });
     return this.handleResponse<T>(response);
   }
@@ -265,10 +240,11 @@ class ApiClient {
   /**
    * Generic DELETE request
    */
-  private async delete<T>(endpoint: string, includeAuth: boolean = true): Promise<T> {
+  private async delete<T>(endpoint: string): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'DELETE',
-      headers: this.getHeaders(includeAuth),
+      headers: this.getHeaders(),
+      credentials: 'include',
     });
     return this.handleResponse<T>(response);
   }
@@ -276,19 +252,11 @@ class ApiClient {
   // ==================== AUTH ENDPOINTS ====================
 
   async register(data: RegisterRequest): Promise<AuthResponse> {
-    const response = await this.post<AuthResponse>('/auth/register', data, false);
-    if (response.access_token) {
-      this.setToken(response.access_token);
-    }
-    return response;
+    return this.post<AuthResponse>('/auth/register', data);
   }
 
   async login(data: LoginRequest): Promise<AuthResponse> {
-    const response = await this.post<AuthResponse>('/auth/login', data, false);
-    if (response.access_token) {
-      this.setToken(response.access_token);
-    }
-    return response;
+    return this.post<AuthResponse>('/auth/login', data);
   }
 
   async getProfile(): Promise<User> {
@@ -296,7 +264,11 @@ class ApiClient {
   }
 
   async logout(): Promise<void> {
-    this.removeToken();
+    try {
+      await this.post<void>('/auth/logout');
+    } catch {
+      // Best-effort: clear even if server call fails
+    }
   }
 
   // ==================== PROJECTS ENDPOINTS ====================
@@ -401,19 +373,12 @@ class ApiClient {
     void,
     unknown
   > {
-    const token = this.getToken();
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
     const response = await fetch(`${this.baseUrl}/ai/ask-stream`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
       signal,
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -480,18 +445,22 @@ export const api = new ApiClient();
 // Export hook helpers for React
 export const apiHooks = {
   /**
-   * Check if user is authenticated (token exists)
+   * Check if user is authenticated by verifying the session with the backend.
+   * Uses cookie-based auth — no localStorage needed.
    */
-  isAuthenticated: (): boolean => {
-    if (typeof window === 'undefined') return false;
-    return !!localStorage.getItem('auth_token');
+  isAuthenticated: async (): Promise<boolean> => {
+    try {
+      await api.getProfile();
+      return true;
+    } catch {
+      return false;
+    }
   },
 
   /**
    * Clear auth state (logout)
    */
   clearAuth: (): void => {
-    if (typeof window === 'undefined') return;
-    localStorage.removeItem('auth_token');
+    api.logout();
   },
 };
