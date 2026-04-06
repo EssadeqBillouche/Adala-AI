@@ -2,24 +2,6 @@ version: "3.9"
 
 services:
   # =============================================================================
-  # QDRANT - Vector Database with Hybrid Search
-  # =============================================================================
-  qdrant:
-    image: qdrant/qdrant:latest
-    container_name: qdrant
-    ports:
-      - "6333:6333"
-    volumes:
-      - qdrant_storage:/qdrant/storage
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/6333 && echo -e 'GET / HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3 && cat <&3 | head -1 | grep -q '200' && exec 3>&- || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-
-  # =============================================================================
   # AI ENGINE - AdalaAI Legal RAG Engine (FastAPI + LangGraph)
   # =============================================================================
   ai-engine:
@@ -29,10 +11,7 @@ services:
     container_name: ai-engine
     env_file:
       - ./ai-engine/.env
-    depends_on:
-      qdrant:
-        condition: service_started
-    # No ports exposed - internal only via backend
+    # Qdrant Cloud: no local dependency on a local Qdrant container
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -58,7 +37,6 @@ services:
     # Also removed port 3001 binding: Nginx handles external traffic!
     depends_on:
       - ai-engine
-      - qdrant
     restart: unless-stopped
 
   frontend:
@@ -85,9 +63,4 @@ services:
       - backend
     restart: unless-stopped
 
-# =============================================================================
-# VOLUMES
-# =============================================================================
-volumes:
-  qdrant_storage:
-    driver: local
+# No named volumes needed — Qdrant Cloud handles persistence

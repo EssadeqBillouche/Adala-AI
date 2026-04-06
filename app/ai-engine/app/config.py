@@ -48,12 +48,12 @@ class Settings(BaseSettings):
     # Qdrant
     # =========================================================================
     qdrant_url: str = Field(
-        default="http://localhost:6333",
-        description="Qdrant server URL",
+        default="https://localhost:6333",
+        description="Qdrant server URL (cloud or local)",
     )
     qdrant_api_key: str | None = Field(
         default=None,
-        description="Qdrant API key (optional for local deployments)",
+        description="Qdrant API key (required for Qdrant Cloud)",
     )
     qdrant_collection: str = Field(
         default="moroccan_legal_docs_hybrid",
