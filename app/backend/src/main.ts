@@ -30,31 +30,33 @@ async function bootstrap() {
   });
 
   // Swagger/OpenAPI Documentation
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Adala AI API')
-    .setDescription('Legal AI SaaS API - Multi-tenant platform for legal intelligence with credit-based billing')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .addTag('auth', 'Authentication & Registration')
-    .addTag('projects', 'Project Management')
-    .addTag('conversations', 'Conversation Management')
-    .addTag('messages', 'Message Management')
-    .addTag('legal-sources', 'Legal Source Management')
-    .addTag('credit-ledger', 'Credit Ledger & Billing')
-    .addTag('subscription', 'Subscription Management')
-    .addTag('api-keys', 'API Key Management')
-    .addTag('audit-logs', 'Audit Logs')
-    .addTag('invitations', 'User Invitations')
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig, {
-    deepScanRoutes: true,
-    operationIdFactory: (controllerKey: string, methodKey: string) => methodKey,
-  });
-  SwaggerModule.setup('api', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-    },
-  });
+  if (configService.get<string>('NODE_ENV') !== 'production') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Adala AI API')
+      .setDescription('Legal AI SaaS API - Multi-tenant platform for legal intelligence with credit-based billing')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .addTag('auth', 'Authentication & Registration')
+      .addTag('projects', 'Project Management')
+      .addTag('conversations', 'Conversation Management')
+      .addTag('messages', 'Message Management')
+      .addTag('legal-sources', 'Legal Source Management')
+      .addTag('credit-ledger', 'Credit Ledger & Billing')
+      .addTag('subscription', 'Subscription Management')
+      .addTag('api-keys', 'API Key Management')
+      .addTag('audit-logs', 'Audit Logs')
+      .addTag('invitations', 'User Invitations')
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig, {
+      deepScanRoutes: true,
+      operationIdFactory: (controllerKey: string, methodKey: string) => methodKey,
+    });
+    SwaggerModule.setup('api', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
+      },
+    });
+  }
 
   // Global filters & pipes
   app.useGlobalInterceptors(new TransformInterceptor())
