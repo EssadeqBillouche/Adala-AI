@@ -5,7 +5,7 @@ config(); // Load the .env file
 export const AppDataSource = new DataSource({
   type: 'postgres',
   url: process.env.Db_URL,
-  synchronize: true,
+  synchronize: process.env.NODE_ENV !== 'production',
   ssl: {
     rejectUnauthorized: process.env.NODE_ENV === 'production',
   },
