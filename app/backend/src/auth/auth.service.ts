@@ -37,6 +37,10 @@ export class AuthService {
     };
   }
 
+  signToken(payload: object): string {
+    return this.jwtService.sign(payload);
+  }
+
   async register(registerDto: RegisterDto) {
     const existingUser = await this.usersService.findByEmail(registerDto.email);
     if (existingUser) {

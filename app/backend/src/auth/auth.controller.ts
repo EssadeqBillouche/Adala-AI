@@ -37,7 +37,7 @@ export class AuthController {
   async register(@Body() registerDto: RegisterDto, @Res() res: Response) {
     const user = await this.authService.register(registerDto);
     const payload = { email: user.email, sub: user.id, role: user.role, orgId: user.organizationId };
-    const access_token = this.authService['jwtService'].sign(payload);
+    const access_token = this.authService.signToken(payload);
 
     res.cookie('access_token', access_token, COOKIE_OPTIONS);
 
