@@ -21,6 +21,10 @@ export class TenancyService {
     return this.dataSource.transaction(async (manager) => {
       // SET LOCAL applies the variable strictly to the current transaction.
       // SET doesn't support $N parameters, so we safely interpolate the UUID.
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantId)) {
+        throw new UnauthorizedException('Invalid tenant identifier');
+      }
+
       await manager.query(
         `SET LOCAL "app.current_tenant_id" = '${tenantId}'`,
       );
