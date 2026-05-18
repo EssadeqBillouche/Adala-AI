@@ -2,7 +2,7 @@ import { IsString, IsNotEmpty, IsEnum, IsOptional, IsDateString } from 'class-va
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SourceType } from '../entities/enums/source-type.enum';
 import { LegalDomain } from '../entities/enums/legal-domain.enum';
-import { Locale } from '../entities/enums/locale.enum';
+import { Locale } from '../../common/enums/locale.enum';
 import { Jurisdiction } from '../entities/enums/jurisdiction.enum';
 
 export class CreateLegalSourceDto {

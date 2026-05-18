@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Param, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, UseGuards, Query, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { InvitationsService } from './invitations.service';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
@@ -7,7 +7,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from './entities/user.entity';
+import { UserRole } from '../common/enums/user-role.enum';
 
 @ApiTags('invitations')
 @ApiBearerAuth()
@@ -32,8 +32,8 @@ export class InvitationsController {
   @ApiResponse({ status: 200, description: 'List of invitations' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
-  findAll() {
-    return this.invitationsService.findAll();
+  findAll(@Query('page') page: number = 1, @Query('limit') limit: number = 10) {
+    return this.invitationsService.findAll(Number(page), Number(limit));
   }
 
   @Get(':id')
@@ -43,7 +43,7 @@ export class InvitationsController {
   @ApiResponse({ status: 404, description: 'Invitation not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.invitationsService.findOne(id);
   }
 
@@ -54,7 +54,7 @@ export class InvitationsController {
   @ApiResponse({ status: 404, description: 'Invitation not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
-  revoke(@Param('id') id: string) {
+  revoke(@Param('id', ParseUUIDPipe) id: string) {
     return this.invitationsService.revoke(id);
   }
 
@@ -65,7 +65,7 @@ export class InvitationsController {
   @ApiResponse({ status: 404, description: 'Invitation not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
-  remove(@Param('id') id: string) {
+  remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.invitationsService.remove(id);
   }
 }

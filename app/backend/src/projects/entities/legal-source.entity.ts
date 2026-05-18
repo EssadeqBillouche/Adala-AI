@@ -3,7 +3,7 @@ import { Organization } from '../../organizations/entities/organization.entity';
 import { SourceType } from './enums/source-type.enum';
 import { EmbeddingStatus } from './enums/embedding-status.enum';
 import { LegalDomain } from './enums/legal-domain.enum';
-import { Locale } from './enums/locale.enum';
+import { Locale } from '../../common/enums/locale.enum';
 import { Jurisdiction } from './enums/jurisdiction.enum';
 import { MessageCitation } from './message-citation.entity';
 

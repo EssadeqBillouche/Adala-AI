@@ -4,6 +4,7 @@ import { CreateInvitationDto } from './dto/create-invitation.dto';
 import { Invitation } from './entities/invitation.entity';
 import { TenancyService } from '../tenancy/tenancy.service';
 import { InviteStatus } from './entities/enums/invite-status.enum';
+import { User } from './entities/user.entity';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -49,11 +50,14 @@ export class InvitationsService {
     });
   }
 
-  async findAll() {
+  async findAll(page: number = 1, limit: number = 10) {
     return this.tenancyService.runWithTenant(async (manager) => {
+      const skip = (page - 1) * limit;
       return manager.find(Invitation, {
         order: { createdAt: 'DESC' },
         relations: ['organization'],
+        skip,
+        take: limit,
       });
     });
   }
@@ -88,7 +92,7 @@ export class InvitationsService {
   }
 
   async accept(token: string, userId: string) {
-    return this.tenancyService.runWithTenant(async (manager) => {
+    return this.tenancyService.runBypassingTenant(async (manager) => {
       const invitation = await manager.findOne(Invitation, {
         where: { token },
         relations: ['organization'],
@@ -104,6 +108,12 @@ export class InvitationsService {
 
       invitation.accept();
       await manager.save(Invitation, invitation);
+
+      const user = await manager.findOne(User, { where: { id: userId } });
+      if (user) {
+        user.organizationId = invitation.organizationId;
+        await manager.save(User, user);
+      }
 
       return invitation;
     });

@@ -1,6 +1,6 @@
 import { IsEmail, IsNotEmpty, IsEnum, IsOptional, IsDateString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { UserRole } from '../entities/user.entity';
+import { UserRole } from '../../common/enums/user-role.enum';
 
 export class CreateInvitationDto {
   @ApiProperty({ description: 'Invitee email address', example: 'newuser@example.com' })

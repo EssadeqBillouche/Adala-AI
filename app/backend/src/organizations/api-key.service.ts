@@ -39,11 +39,14 @@ export class ApiKeyService {
     });
   }
 
-  async findAll() {
+  async findAll(page: number = 1, limit: number = 10) {
     return this.tenancyService.runWithTenant(async (manager) => {
+      const skip = (page - 1) * limit;
       return manager.find(ApiKey, {
         select: ['id', 'name', 'keyPrefix', 'scopes', 'rateLimit', 'expiresAt', 'lastUsedAt', 'isRevoked', 'createdAt'],
         order: { createdAt: 'DESC' },
+        skip,
+        take: limit,
       });
     });
   }
@@ -67,7 +70,10 @@ export class ApiKeyService {
       if (!apiKey) {
         throw new NotFoundException(`ApiKey with ID ${id} not found`);
       }
-      Object.assign(apiKey, updateApiKeyDto);
+      if (updateApiKeyDto.name !== undefined) apiKey.name = updateApiKeyDto.name;
+      if (updateApiKeyDto.scopes !== undefined) apiKey.scopes = updateApiKeyDto.scopes;
+      if (updateApiKeyDto.isRevoked !== undefined) apiKey.isRevoked = updateApiKeyDto.isRevoked;
+      if (updateApiKeyDto.expiresAt !== undefined) apiKey.expiresAt = updateApiKeyDto.expiresAt as any;
       return manager.save(ApiKey, apiKey);
     });
   }

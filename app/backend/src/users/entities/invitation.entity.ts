@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, BeforeUpdate } from 'typeorm';
 import { Organization } from '../../organizations/entities/organization.entity';
-import { UserRole } from './user.entity';
+import { UserRole } from '../../common/enums/user-role.enum';
 import { InviteStatus } from './enums/invite-status.enum';
 
 @Entity('invitations')

@@ -4,8 +4,8 @@ import { Repository } from 'typeorm';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { Organization } from '../organizations/entities/organization.entity';
-import { UserRole } from './entities/user.entity';
-import { Locale } from '../projects/entities/enums/locale.enum';
+import { UserRole } from '../common/enums/user-role.enum';
+import { Locale } from '../common/enums/locale.enum';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -362,7 +362,7 @@ describe('UsersService', () => {
       };
       ownerUser.canAccess = jest.fn().mockReturnValue(true);
 
-      expect(ownerUser.canAccess('resource')).toBe(true);
+      expect(ownerUser.canAccess()).toBe(true);
     });
 
     it('should return true for ADMIN role in canAccess', () => {
@@ -373,7 +373,7 @@ describe('UsersService', () => {
       };
       adminUser.canAccess = jest.fn().mockReturnValue(true);
 
-      expect(adminUser.canAccess('resource')).toBe(true);
+      expect(adminUser.canAccess()).toBe(true);
     });
 
     it('should return true for active MEMBER in canAccess', () => {
@@ -384,7 +384,7 @@ describe('UsersService', () => {
       };
       memberUser.canAccess = jest.fn().mockReturnValue(true);
 
-      expect(memberUser.canAccess('resource')).toBe(true);
+      expect(memberUser.canAccess()).toBe(true);
     });
 
     it('should deactivate user by setting isActive to false', () => {

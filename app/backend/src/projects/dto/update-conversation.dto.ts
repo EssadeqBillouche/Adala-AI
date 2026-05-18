@@ -1,7 +1,7 @@
 import { IsString, IsOptional, IsEnum } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { ConvStatus } from '../entities/enums/conv-status.enum';
-import { Locale } from '../entities/enums/locale.enum';
+import { Locale } from '../../common/enums/locale.enum';
 
 export class UpdateConversationDto {
   @ApiPropertyOptional({ description: 'Conversation title' })

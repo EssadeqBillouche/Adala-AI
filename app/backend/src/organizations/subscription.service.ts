@@ -42,7 +42,12 @@ export class SubscriptionService {
       if (!subscription) {
         throw new NotFoundException('No subscription found for this organization');
       }
-      Object.assign(subscription, updateSubscriptionDto);
+      if (updateSubscriptionDto.status !== undefined) subscription.status = updateSubscriptionDto.status;
+      if (updateSubscriptionDto.monthlyCreditsAlloc !== undefined) subscription.monthlyCreditsAlloc = updateSubscriptionDto.monthlyCreditsAlloc;
+      if (updateSubscriptionDto.currentPeriodStart !== undefined) subscription.currentPeriodStart = updateSubscriptionDto.currentPeriodStart as any;
+      if (updateSubscriptionDto.currentPeriodEnd !== undefined) subscription.currentPeriodEnd = updateSubscriptionDto.currentPeriodEnd as any;
+      if (updateSubscriptionDto.cancelAtPeriodEnd !== undefined) subscription.cancelAtPeriodEnd = updateSubscriptionDto.cancelAtPeriodEnd;
+      if (updateSubscriptionDto.trialEndsAt !== undefined) subscription.trialEndsAt = updateSubscriptionDto.trialEndsAt as any;
       return manager.save(Subscription, subscription);
     });
   }

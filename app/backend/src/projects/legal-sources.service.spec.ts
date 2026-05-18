@@ -8,7 +8,7 @@ import { CreateLegalSourceDto } from './dto/create-legal-source.dto';
 import { UpdateLegalSourceDto } from './dto/update-legal-source.dto';
 import { SourceType } from './entities/enums/source-type.enum';
 import { LegalDomain } from './entities/enums/legal-domain.enum';
-import { Locale } from './entities/enums/locale.enum';
+import { Locale } from '../common/enums/locale.enum';
 import { Jurisdiction } from './entities/enums/jurisdiction.enum';
 import { EmbeddingStatus } from './entities/enums/embedding-status.enum';
 

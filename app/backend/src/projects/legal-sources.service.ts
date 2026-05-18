@@ -24,9 +24,10 @@ export class LegalSourcesService {
     });
   }
 
-  async findAll() {
+  async findAll(page: number = 1, limit: number = 10) {
     return this.tenancyService.runWithTenant(async (manager) => {
-      return manager.find(LegalSource, { relations: ['citations'] });
+      const skip = (page - 1) * limit;
+      return manager.find(LegalSource, { relations: ['citations'], skip, take: limit });
     });
   }
 

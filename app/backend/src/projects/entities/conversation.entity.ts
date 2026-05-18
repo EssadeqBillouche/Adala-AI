@@ -2,7 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDa
 import { Project } from './project.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { ConvStatus } from './enums/conv-status.enum';
-import { Locale } from './enums/locale.enum';
+import { Locale } from '../../common/enums/locale.enum';
 import { Message } from './message.entity';
 
 @Entity('conversations')
@@ -62,8 +62,5 @@ export class Conversation {
     this.status = ConvStatus.ACTIVE;
   }
 
-  getCreditsRemaining(): number {
-    const maxCredits = this.organization?.tier === 'FREE' ? 1000 : this.organization?.tier === 'PRO' ? 10000 : 100000;
-    return maxCredits - this.totalCreditsUsed;
-  }
+
 }

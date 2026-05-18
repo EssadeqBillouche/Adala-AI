@@ -1,4 +1,4 @@
-import { UserRole } from '../../users/entities/user.entity';
+import { UserRole } from '../../common/enums/user-role.enum';
 
 /**
  * The payload encoded inside the JWT token.

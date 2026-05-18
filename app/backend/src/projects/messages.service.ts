@@ -23,13 +23,14 @@ export class MessagesService {
     });
   }
 
-  async findAll(conversationId?: string) {
+  async findAll(conversationId?: string, page: number = 1, limit: number = 10) {
     return this.tenancyService.runWithTenant(async (manager) => {
       const where: Record<string, unknown> = {};
       if (conversationId) {
         where.conversationId = conversationId;
       }
-      return manager.find(Message, { where, relations: ['citations'] });
+      const skip = (page - 1) * limit;
+      return manager.find(Message, { where, relations: ['citations'], skip, take: limit });
     });
   }
 
@@ -52,7 +53,14 @@ export class MessagesService {
       if (!message) {
         throw new NotFoundException(`Message with ID ${id} not found`);
       }
-      Object.assign(message, updateMessageDto);
+      if (updateMessageDto.role !== undefined) message.role = updateMessageDto.role;
+      if (updateMessageDto.content !== undefined) message.content = updateMessageDto.content;
+      if (updateMessageDto.tokensIn !== undefined) message.tokensIn = updateMessageDto.tokensIn;
+      if (updateMessageDto.tokensOut !== undefined) message.tokensOut = updateMessageDto.tokensOut;
+      if (updateMessageDto.latencyMs !== undefined) message.latencyMs = updateMessageDto.latencyMs;
+      if (updateMessageDto.ragScore !== undefined) message.ragScore = updateMessageDto.ragScore;
+      if (updateMessageDto.errorCode !== undefined) message.errorCode = updateMessageDto.errorCode;
+      if (updateMessageDto.metadata !== undefined) message.metadata = updateMessageDto.metadata;
       return manager.save(Message, message);
     });
   }

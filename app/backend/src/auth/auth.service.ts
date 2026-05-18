@@ -3,8 +3,10 @@ import { UsersService } from '../users/users.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { DataSource } from 'typeorm';
 import { RegisterDto } from './dto/register.dto';
 import { JwtPayload, ValidatedUser } from './interfaces/jwt-payload.interface';
+import { UserRole } from '../common/enums/user-role.enum';
 
 @Injectable()
 export class AuthService {
@@ -12,6 +14,7 @@ export class AuthService {
     private usersService: UsersService,
     private organizationsService: OrganizationsService,
     private jwtService: JwtService,
+    private dataSource: DataSource,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<ValidatedUser | null> {
@@ -47,26 +50,28 @@ export class AuthService {
       throw new ConflictException('Email already in use');
     }
 
-    // Create organization
-    const orgName = registerDto.organizationName || `${registerDto.firstName} ${registerDto.lastName}'s Org`;
-
-    const org = await this.organizationsService.create(orgName);
-
     // Hash password
     const saltOrRounds = 10;
     const passwordHash = await bcrypt.hash(registerDto.password, saltOrRounds);
 
-    // Create User
-    const user = await this.usersService.create({
-      email: registerDto.email,
-      passwordHash,
-      firstName: registerDto.firstName,
-      lastName: registerDto.lastName,
-      organizationId: org.id,
-      organization: org,
-    });
+    return this.dataSource.transaction(async (manager) => {
+      // Create organization
+      const orgName = registerDto.organizationName || `${registerDto.firstName} ${registerDto.lastName}'s Org`;
+      const org = await this.organizationsService.create(orgName, manager);
 
-    const { passwordHash: _, ...result } = user;
-    return result;
+      // Create User
+      const user = await this.usersService.create({
+        email: registerDto.email,
+        passwordHash,
+        firstName: registerDto.firstName,
+        lastName: registerDto.lastName,
+        organizationId: org.id,
+        organization: org,
+        role: UserRole.OWNER,
+      }, manager);
+
+      const { passwordHash: _, ...result } = user;
+      return result;
+    });
   }
 }

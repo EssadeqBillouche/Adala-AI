@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { Organization } from './entities/organization.entity';
 
 @Injectable()
@@ -19,11 +19,11 @@ export class OrganizationsService {
       .replace(/^-+|-+$/g, '');
   }
 
-  private async generateUniqueSlug(baseSlug: string): Promise<string> {
+  private async generateUniqueSlug(baseSlug: string, repo: Repository<Organization>): Promise<string> {
     let slug = baseSlug;
     let counter = 1;
 
-    while (await this.orgRepository.exists({ where: { slug } })) {
+    while (await repo.exists({ where: { slug } })) {
       slug = `${baseSlug}-${counter}`;
       counter++;
     }
@@ -31,11 +31,12 @@ export class OrganizationsService {
     return slug;
   }
 
-  async create(name: string): Promise<Organization> {
+  async create(name: string, manager?: EntityManager): Promise<Organization> {
+    const repo = manager ? manager.getRepository(Organization) : this.orgRepository;
     const baseSlug = this.generateSlug(name);
-    const slug = await this.generateUniqueSlug(baseSlug);
+    const slug = await this.generateUniqueSlug(baseSlug, repo);
 
-    const org = this.orgRepository.create({ name, slug });
-    return this.orgRepository.save(org);
+    const org = repo.create({ name, slug });
+    return repo.save(org);
   }
 }

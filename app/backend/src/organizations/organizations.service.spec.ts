@@ -3,7 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OrganizationsService } from './organizations.service';
 import { Organization } from './entities/organization.entity';
-import { Locale } from '../projects/entities/enums/locale.enum';
+import { Locale } from '../common/enums/locale.enum';
 import { TenantTier } from './entities/organization.entity';
 
 describe('OrganizationsService', () => {

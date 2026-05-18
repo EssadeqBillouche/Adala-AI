@@ -1,14 +1,9 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { Organization } from '../../organizations/entities/organization.entity';
-import { Locale } from '../../projects/entities/enums/locale.enum';
+import { Locale } from '../../common/enums/locale.enum';
 
-export enum UserRole {
-  OWNER = 'OWNER',
-  ADMIN = 'ADMIN',
-  MEMBER = 'MEMBER',
-  VIEWER = 'VIEWER',
-}
+import { UserRole } from '../../common/enums/user-role.enum';
 
 @Entity('users')
 export class User {
@@ -56,7 +51,7 @@ export class User {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
 
-  canAccess(resource: string): boolean {
+  canAccess(): boolean {
     if (this.role === UserRole.OWNER || this.role === UserRole.ADMIN) {
       return true;
     }

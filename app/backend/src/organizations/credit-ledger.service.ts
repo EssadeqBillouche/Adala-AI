@@ -22,17 +22,26 @@ export class CreditLedgerService {
         throw new ConflictException('Transaction with this idempotency key already exists');
       }
 
+      const result = await manager
+        .createQueryBuilder(CreditLedger, 'ledger')
+        .select('SUM(amount)', 'balance')
+        .getRawOne();
+      const currentBalance = parseInt(result.balance) || 0;
+
       const creditLedger = manager.create(CreditLedger, {
         ...createCreditLedgerDto,
         organizationId,
+        balanceBefore: currentBalance,
+        balanceAfter: currentBalance + createCreditLedgerDto.amount,
       });
       return manager.save(CreditLedger, creditLedger);
     });
   }
 
-  async findAll() {
+  async findAll(page: number = 1, limit: number = 10) {
     return this.tenancyService.runWithTenant(async (manager) => {
-      return manager.find(CreditLedger, { order: { createdAt: 'DESC' } });
+      const skip = (page - 1) * limit;
+      return manager.find(CreditLedger, { order: { createdAt: 'DESC' }, skip, take: limit });
     });
   }
 

@@ -2,7 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDa
 import { Organization } from '../../organizations/entities/organization.entity';
 import { Conversation } from './conversation.entity';
 import { LegalDomain } from './enums/legal-domain.enum';
-import { Locale } from './enums/locale.enum';
+import { Locale } from '../../common/enums/locale.enum';
 
 @Entity('projects')
 export class Project {

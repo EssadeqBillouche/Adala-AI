@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { ConversationsService } from './conversations.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
@@ -26,8 +26,8 @@ export class ConversationsController {
   @ApiOperation({ summary: 'Get all conversations for the current organization' })
   @ApiResponse({ status: 200, description: 'List of conversations' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  findAll(@Query('projectId') projectId?: string) {
-    return this.conversationsService.findAll(projectId);
+  findAll(@Query('projectId') projectId?: string, @Query('page') page: number = 1, @Query('limit') limit: number = 10) {
+    return this.conversationsService.findAll(projectId, Number(page), Number(limit));
   }
 
   @Get(':id')
@@ -36,7 +36,7 @@ export class ConversationsController {
   @ApiResponse({ status: 200, description: 'Conversation found' })
   @ApiResponse({ status: 404, description: 'Conversation not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.conversationsService.findOne(id);
   }
 
@@ -46,7 +46,7 @@ export class ConversationsController {
   @ApiResponse({ status: 200, description: 'Conversation updated successfully' })
   @ApiResponse({ status: 404, description: 'Conversation not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  update(@Param('id') id: string, @Body() updateConversationDto: UpdateConversationDto) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateConversationDto: UpdateConversationDto) {
     return this.conversationsService.update(id, updateConversationDto);
   }
 
@@ -56,7 +56,7 @@ export class ConversationsController {
   @ApiResponse({ status: 200, description: 'Conversation archived successfully' })
   @ApiResponse({ status: 404, description: 'Conversation not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  archive(@Param('id') id: string) {
+  archive(@Param('id', ParseUUIDPipe) id: string) {
     return this.conversationsService.archive(id);
   }
 
@@ -66,7 +66,7 @@ export class ConversationsController {
   @ApiResponse({ status: 200, description: 'Conversation restored successfully' })
   @ApiResponse({ status: 404, description: 'Conversation not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  restore(@Param('id') id: string) {
+  restore(@Param('id', ParseUUIDPipe) id: string) {
     return this.conversationsService.restore(id);
   }
 
@@ -76,7 +76,7 @@ export class ConversationsController {
   @ApiResponse({ status: 200, description: 'Conversation deleted successfully' })
   @ApiResponse({ status: 404, description: 'Conversation not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  remove(@Param('id') id: string) {
+  remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.conversationsService.remove(id);
   }
 }

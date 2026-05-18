@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn } from 'typeorm';
 import { Organization } from './organization.entity';
 import { SubStatus } from './enums/sub-status.enum';
 
@@ -37,7 +37,8 @@ export class Subscription {
   @Column({ name: 'organization_id', unique: true })
   organizationId!: string;
 
-  @OneToMany(() => Organization, (org) => org.subscription)
+  @OneToOne(() => Organization, (org) => org.subscription)
+  @JoinColumn({ name: 'organization_id' })
   organization!: Organization;
 
   @CreateDateColumn({ name: 'created_at' })
@@ -51,8 +52,8 @@ export class Subscription {
   }
 
   daysRemaining(): number {
-    const end = this.cancelAtPeriodEnd ? this.currentPeriodEnd : this.currentPeriodEnd;
+    if (!this.currentPeriodEnd) return 0;
     const now = new Date();
-    return Math.max(0, Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+    return Math.max(0, Math.ceil((this.currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
   }
 }

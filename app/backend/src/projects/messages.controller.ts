@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
@@ -26,8 +26,8 @@ export class MessagesController {
   @ApiOperation({ summary: 'Get all messages for a conversation' })
   @ApiResponse({ status: 200, description: 'List of messages' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  findAll(@Query('conversationId') conversationId?: string) {
-    return this.messagesService.findAll(conversationId);
+  findAll(@Query('conversationId') conversationId?: string, @Query('page') page: number = 1, @Query('limit') limit: number = 10) {
+    return this.messagesService.findAll(conversationId, Number(page), Number(limit));
   }
 
   @Get(':id')
@@ -36,7 +36,7 @@ export class MessagesController {
   @ApiResponse({ status: 200, description: 'Message found' })
   @ApiResponse({ status: 404, description: 'Message not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.messagesService.findOne(id);
   }
 
@@ -46,7 +46,7 @@ export class MessagesController {
   @ApiResponse({ status: 200, description: 'Message updated successfully' })
   @ApiResponse({ status: 404, description: 'Message not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  update(@Param('id') id: string, @Body() updateMessageDto: UpdateMessageDto) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateMessageDto: UpdateMessageDto) {
     return this.messagesService.update(id, updateMessageDto);
   }
 
@@ -56,7 +56,7 @@ export class MessagesController {
   @ApiResponse({ status: 200, description: 'Message deleted successfully' })
   @ApiResponse({ status: 404, description: 'Message not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  remove(@Param('id') id: string) {
+  remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.messagesService.remove(id);
   }
 }

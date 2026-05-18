@@ -13,16 +13,6 @@ export class CreateCreditLedgerDto {
   @IsNotEmpty()
   amount!: number;
 
-  @ApiProperty({ description: 'Balance before transaction', example: 1000 })
-  @IsNumber()
-  @IsNotEmpty()
-  balanceBefore!: number;
-
-  @ApiProperty({ description: 'Balance after transaction', example: 1500 })
-  @IsNumber()
-  @IsNotEmpty()
-  balanceAfter!: number;
-
   @ApiPropertyOptional({ description: 'Reason for transaction', example: 'Monthly subscription top-up' })
   @IsString()
   @IsOptional()

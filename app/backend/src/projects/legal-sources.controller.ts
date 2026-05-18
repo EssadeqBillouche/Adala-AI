@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { LegalSourcesService } from './legal-sources.service';
 import { CreateLegalSourceDto } from './dto/create-legal-source.dto';
@@ -26,8 +26,8 @@ export class LegalSourcesController {
   @ApiOperation({ summary: 'Get all legal sources for the current organization' })
   @ApiResponse({ status: 200, description: 'List of legal sources' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  findAll() {
-    return this.legalSourcesService.findAll();
+  findAll(@Query('page') page: number = 1, @Query('limit') limit: number = 10) {
+    return this.legalSourcesService.findAll(Number(page), Number(limit));
   }
 
   @Get(':id')
@@ -36,7 +36,7 @@ export class LegalSourcesController {
   @ApiResponse({ status: 200, description: 'Legal source found' })
   @ApiResponse({ status: 404, description: 'Legal source not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.legalSourcesService.findOne(id);
   }
 
@@ -46,7 +46,7 @@ export class LegalSourcesController {
   @ApiResponse({ status: 200, description: 'Legal source updated successfully' })
   @ApiResponse({ status: 404, description: 'Legal source not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  update(@Param('id') id: string, @Body() updateLegalSourceDto: UpdateLegalSourceDto) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateLegalSourceDto: UpdateLegalSourceDto) {
     return this.legalSourcesService.update(id, updateLegalSourceDto);
   }
 
@@ -56,7 +56,7 @@ export class LegalSourcesController {
   @ApiResponse({ status: 200, description: 'Legal source deleted successfully' })
   @ApiResponse({ status: 404, description: 'Legal source not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  remove(@Param('id') id: string) {
+  remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.legalSourcesService.remove(id);
   }
 }

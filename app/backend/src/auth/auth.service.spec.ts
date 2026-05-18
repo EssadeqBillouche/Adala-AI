@@ -6,8 +6,8 @@ import { UsersService } from '../users/users.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { User } from '../users/entities/user.entity';
 import { Organization } from '../organizations/entities/organization.entity';
-import { UserRole } from '../users/entities/user.entity';
-import { Locale } from '../projects/entities/enums/locale.enum';
+import { UserRole } from '../common/enums/user-role.enum';
+import { Locale } from '../common/enums/locale.enum';
 import { ValidatedUser } from './interfaces/jwt-payload.interface';
 
 jest.mock('bcrypt', () => ({

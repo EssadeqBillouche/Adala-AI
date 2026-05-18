@@ -24,13 +24,14 @@ export class ConversationsService {
     });
   }
 
-  async findAll(projectId?: string) {
+  async findAll(projectId?: string, page: number = 1, limit: number = 10) {
     return this.tenancyService.runWithTenant(async (manager) => {
       const where: Record<string, unknown> = {};
       if (projectId) {
         where.projectId = projectId;
       }
-      return manager.find(Conversation, { where, relations: ['messages'] });
+      const skip = (page - 1) * limit;
+      return manager.find(Conversation, { where, relations: ['messages'], skip, take: limit });
     });
   }
 
@@ -53,7 +54,10 @@ export class ConversationsService {
       if (!conversation) {
         throw new NotFoundException(`Conversation with ID ${id} not found`);
       }
-      Object.assign(conversation, updateConversationDto);
+      if (updateConversationDto.title !== undefined) conversation.title = updateConversationDto.title;
+      if (updateConversationDto.summary !== undefined) conversation.summary = updateConversationDto.summary;
+      if (updateConversationDto.status !== undefined) conversation.status = updateConversationDto.status;
+      if (updateConversationDto.language !== undefined) conversation.language = updateConversationDto.language;
       return manager.save(Conversation, conversation);
     });
   }

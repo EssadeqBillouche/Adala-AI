@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, OneToOne } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Subscription } from './subscription.entity';
-import { Locale } from '../../projects/entities/enums/locale.enum';
+import { Locale } from '../../common/enums/locale.enum';
 
 export enum TenantTier {
   FREE = 'FREE',

@@ -1,6 +1,6 @@
 import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Locale } from '../entities/enums/locale.enum';
+import { Locale } from '../../common/enums/locale.enum';
 
 export class CreateConversationDto {
   @ApiProperty({ description: 'Conversation title', example: 'Legal Research Session 1' })

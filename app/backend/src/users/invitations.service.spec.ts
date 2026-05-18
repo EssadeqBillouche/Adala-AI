@@ -7,7 +7,7 @@ import { TenancyService } from '../tenancy/tenancy.service';
 import { Invitation } from './entities/invitation.entity';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
 import { InviteStatus } from './entities/enums/invite-status.enum';
-import { UserRole } from './entities/user.entity';
+import { UserRole } from '../common/enums/user-role.enum';
 
 jest.mock('crypto', () => ({
   randomBytes: jest.fn(() => ({

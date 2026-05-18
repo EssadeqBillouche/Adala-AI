@@ -4,7 +4,7 @@ import { ProjectsService } from './projects.service';
 import { TenancyService } from '../tenancy/tenancy.service';
 import { Project } from './entities/project.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
-import { Locale } from './entities/enums/locale.enum';
+import { Locale } from '../common/enums/locale.enum';
 import { LegalDomain } from './entities/enums/legal-domain.enum';
 
 describe('ProjectsService', () => {

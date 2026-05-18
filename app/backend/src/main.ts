@@ -6,7 +6,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
-import { TransformInterceptor } from './common/Interceptors/transform.interceptor';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -71,5 +71,8 @@ async function bootstrap() {
 
   await app.listen(configService.get<number>('PORT') ?? 4000);
 }
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('Fatal: Failed to start application', err);
+  process.exit(1);
+});
 

@@ -1,14 +1,18 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { ApiKeyService } from './api-key.service';
 import { CreateApiKeyDto } from './dto/create-api-key.dto';
 import { UpdateApiKeyDto } from './dto/update-api-key.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../common/enums/user-role.enum';
 
 @ApiTags('api-keys')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.OWNER, UserRole.ADMIN)
 @Controller('api-keys')
 export class ApiKeyController {
   constructor(private readonly apiKeyService: ApiKeyService) {}
@@ -26,8 +30,8 @@ export class ApiKeyController {
   @ApiOperation({ summary: 'Get all API keys for the current organization' })
   @ApiResponse({ status: 200, description: 'List of API keys (without secret values)' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  findAll() {
-    return this.apiKeyService.findAll();
+  findAll(@Query('page') page: number = 1, @Query('limit') limit: number = 10) {
+    return this.apiKeyService.findAll(Number(page), Number(limit));
   }
 
   @Get(':id')
@@ -36,7 +40,7 @@ export class ApiKeyController {
   @ApiResponse({ status: 200, description: 'API key details' })
   @ApiResponse({ status: 404, description: 'API key not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.apiKeyService.findOne(id);
   }
 
@@ -46,7 +50,7 @@ export class ApiKeyController {
   @ApiResponse({ status: 200, description: 'API key updated successfully' })
   @ApiResponse({ status: 404, description: 'API key not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  update(@Param('id') id: string, @Body() updateApiKeyDto: UpdateApiKeyDto) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateApiKeyDto: UpdateApiKeyDto) {
     return this.apiKeyService.update(id, updateApiKeyDto);
   }
 
@@ -56,7 +60,7 @@ export class ApiKeyController {
   @ApiResponse({ status: 200, description: 'API key revoked successfully' })
   @ApiResponse({ status: 404, description: 'API key not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  revoke(@Param('id') id: string) {
+  revoke(@Param('id', ParseUUIDPipe) id: string) {
     return this.apiKeyService.revoke(id);
   }
 
@@ -66,7 +70,7 @@ export class ApiKeyController {
   @ApiResponse({ status: 200, description: 'API key deleted successfully' })
   @ApiResponse({ status: 404, description: 'API key not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  remove(@Param('id') id: string) {
+  remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.apiKeyService.remove(id);
   }
 }

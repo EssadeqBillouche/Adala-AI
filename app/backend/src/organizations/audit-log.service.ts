@@ -36,10 +36,12 @@ export class AuditLogService {
     });
   }
 
-  async findAll(limit = 100) {
+  async findAll(page: number = 1, limit: number = 100) {
     return this.tenancyService.runWithTenant(async (manager) => {
+      const skip = (page - 1) * limit;
       return manager.find(AuditLog, {
         order: { createdAt: 'DESC' },
+        skip,
         take: limit,
       });
     });
