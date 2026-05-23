@@ -11,6 +11,8 @@ import type { Response } from 'express';
 import { AiEngineService } from '../ai-engine/ai-engine.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AskStreamDto } from './dto/ask-stream.dto';
+import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 
 @ApiTags('ai')
 @ApiBearerAuth()
@@ -24,8 +26,8 @@ export class AiController {
   @Post('ask-stream')
   @ApiOperation({ summary: 'Ask the AI engine with SSE streaming' })
   async askStream(
-    @Body() body: { question: string; conversationId?: string },
-    @CurrentUser() user: any,
+    @Body() body: AskStreamDto,
+    @CurrentUser() user: AuthenticatedUser,
     @Res() res: Response,
   ) {
     const tenantId = user.orgId;
