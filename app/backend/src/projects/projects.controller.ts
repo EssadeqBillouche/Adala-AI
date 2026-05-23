@@ -4,6 +4,7 @@ import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 
 @ApiTags('projects')
 @ApiBearerAuth()
@@ -17,7 +18,7 @@ export class ProjectsController {
   @ApiResponse({ status: 201, description: 'Project created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request - Invalid input' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  create(@Body() createProjectDto: CreateProjectDto, @CurrentUser() user: any) {
+  create(@Body() createProjectDto: CreateProjectDto, @CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.create(createProjectDto, user.orgId);
   }
 

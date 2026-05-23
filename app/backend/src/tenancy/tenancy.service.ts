@@ -39,7 +39,7 @@ export class TenancyService {
    */
   async runBypassingTenant<T>(operation: (manager: EntityManager) => Promise<T>): Promise<T> {
     return this.dataSource.transaction(async (manager) => {
-       await manager.query(`SET LOCAL "app.current_tenant_id" = ''`);
+       await manager.query(`RESET "app.current_tenant_id"`);
        return operation(manager);
     });
   }

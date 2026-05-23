@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+
 import { CreateProjectDto } from './dto/create-project.dto';
 import { Project } from './entities/project.entity';
 import { TenancyService } from '../tenancy/tenancy.service';
@@ -10,7 +10,6 @@ export class ProjectsService {
 
   constructor(
     private tenancyService: TenancyService,
-    private dataSource: DataSource,
   ) {}
 
   async create(createProjectDto: CreateProjectDto, organizationId: string) {

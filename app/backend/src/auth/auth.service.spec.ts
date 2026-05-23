@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { DataSource } from 'typeorm';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { OrganizationsService } from '../organizations/organizations.service';
@@ -58,6 +59,13 @@ describe('AuthService', () => {
     sign: jest.fn(),
   };
 
+  const mockEntityManager = {};
+  const mockDataSource = {
+    transaction: jest.fn().mockImplementation(async (callback) => {
+      return callback(mockEntityManager);
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -73,6 +81,10 @@ describe('AuthService', () => {
         {
           provide: JwtService,
           useValue: mockJwtService,
+        },
+        {
+          provide: DataSource,
+          useValue: mockDataSource,
         },
       ],
     }).compile();
@@ -240,6 +252,8 @@ describe('AuthService', () => {
       email: 'newuser@example.com',
       password: 'SecurePass123!',
       organizationName: 'New Organization',
+      firstName: 'John',
+      lastName: 'Doe',
     };
 
     const mockOrg = {
@@ -251,6 +265,8 @@ describe('AuthService', () => {
       ...mockUser,
       id: 'user-new-123',
       email: registerDto.email,
+      firstName: 'John',
+      lastName: 'Doe',
       organization: mockOrg,
       organizationId: mockOrg.id,
     };
@@ -265,14 +281,17 @@ describe('AuthService', () => {
       const result = await service.register(registerDto);
 
       expect(usersService.findByEmail).toHaveBeenCalledWith(registerDto.email);
-      expect(organizationsService.create).toHaveBeenCalledWith(registerDto.organizationName);
+      expect(organizationsService.create).toHaveBeenCalledWith(registerDto.organizationName, mockEntityManager);
       expect(bcrypt.hash).toHaveBeenCalledWith(registerDto.password, 10);
       expect(usersService.create).toHaveBeenCalledWith({
         email: registerDto.email,
         passwordHash: 'new-hash',
+        firstName: registerDto.firstName,
+        lastName: registerDto.lastName,
         organizationId: mockOrg.id,
         organization: mockOrg,
-      });
+        role: UserRole.OWNER,
+      }, mockEntityManager);
       expect(result.passwordHash).toBeUndefined();
     });
 
@@ -292,13 +311,15 @@ describe('AuthService', () => {
 
       await service.register(registerDto);
 
-      expect(organizationsService.create).toHaveBeenCalledWith(registerDto.organizationName);
+      expect(organizationsService.create).toHaveBeenCalledWith(registerDto.organizationName, mockEntityManager);
     });
 
     it('should create organization with default name when not provided', async () => {
       const registerDtoWithoutOrg = {
         email: 'noorg@example.com',
         password: 'SecurePass123!',
+        firstName: 'John',
+        lastName: 'Doe',
       };
       const bcrypt = require('bcrypt');
       (bcrypt.hash as jest.Mock).mockResolvedValue('new-hash');
@@ -308,7 +329,7 @@ describe('AuthService', () => {
 
       await service.register(registerDtoWithoutOrg);
 
-      expect(organizationsService.create).toHaveBeenCalledWith(`${registerDtoWithoutOrg.email}'s Org`);
+      expect(organizationsService.create).toHaveBeenCalledWith("John Doe's Org", mockEntityManager);
     });
 
     it('should hash password with saltRounds of 10', async () => {
@@ -335,7 +356,7 @@ describe('AuthService', () => {
       expect(usersService.create).toHaveBeenCalledWith(expect.objectContaining({
         organizationId: mockOrg.id,
         organization: mockOrg,
-      }));
+      }), mockEntityManager);
     });
 
     it('should return user without passwordHash', async () => {
@@ -362,6 +383,8 @@ describe('AuthService', () => {
       expect(result).toEqual({
         id: mockCreatedUser.id,
         email: mockCreatedUser.email,
+        firstName: mockCreatedUser.firstName,
+        lastName: mockCreatedUser.lastName,
         fullName: mockCreatedUser.fullName,
         role: mockCreatedUser.role,
         locale: mockCreatedUser.locale,
@@ -450,6 +473,7 @@ describe('AuthService', () => {
         expect.objectContaining({
           passwordHash: mockHash,
         }),
+        mockEntityManager,
       );
     });
   });

@@ -1,5 +1,7 @@
 import { Controller, Post, Body, UseGuards, Request, Get, Res } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import type { Request as ExpressRequest, Response } from 'express';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
@@ -13,23 +15,33 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { UserRole } from '../common/enums/user-role.enum';
 import type { AuthenticatedUser, ValidatedUser } from './interfaces/jwt-payload.interface';
 
-const COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
-  maxAge: 3600 * 1000, // 1 hour
-  path: '/',
-};
-
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
+  private readonly cookieOptions: {
+    httpOnly: boolean;
+    secure: boolean;
+    sameSite: 'lax';
+    maxAge: number;
+    path: string;
+  };
+
   constructor(
     private authService: AuthService,
     private usersService: UsersService,
-  ) {}
+    private configService: ConfigService,
+  ) {
+    this.cookieOptions = {
+      httpOnly: true,
+      secure: this.configService.get<string>('NODE_ENV') === 'production',
+      sameSite: 'lax' as const,
+      maxAge: 3600 * 1000,
+      path: '/',
+    };
+  }
 
   @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({ status: 201, description: 'User registered successfully. Returns JWT token and user info' })
   @ApiResponse({ status: 400, description: 'Bad request - Invalid input' })
@@ -39,7 +51,7 @@ export class AuthController {
     const payload = { email: user.email, sub: user.id, role: user.role, orgId: user.organizationId };
     const access_token = this.authService.signToken(payload);
 
-    res.cookie('access_token', access_token, COOKIE_OPTIONS);
+    res.cookie('access_token', access_token, this.cookieOptions);
 
     const { id, email, firstName, lastName, role, organization, createdAt, updatedAt } = user;
     return res.json({
@@ -49,6 +61,7 @@ export class AuthController {
 
   @UseGuards(LocalAuthGuard)
   @Post('login')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute
   @ApiOperation({ summary: 'Login user' })
   @ApiBody({ type: LoginDto })
   @ApiResponse({ status: 200, description: 'Login successful, returns JWT token and user info' })
@@ -60,7 +73,7 @@ export class AuthController {
   ) {
     const { access_token } = await this.authService.login(req.user);
 
-    res.cookie('access_token', access_token, COOKIE_OPTIONS);
+    res.cookie('access_token', access_token, this.cookieOptions);
 
     const { id, email, firstName, lastName, role, organization, createdAt, updatedAt } = req.user;
     return res.json({

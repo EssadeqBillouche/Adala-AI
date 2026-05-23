@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, OneToOne } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
-import { Subscription } from './subscription.entity';
+import { Subscription } from '../../billing/entities/subscription.entity';
 import { Locale } from '../../common/enums/locale.enum';
 
 export enum TenantTier {
@@ -51,11 +51,12 @@ export class Organization {
   subscription!: Subscription;
 
   getActiveUsers(): User[] {
-    return this.users.filter((u) => u.isActive !== false);
+    return this.users.filter((u) => u.isActive === true);
   }
 
   getCreditBalance(): number {
-    const baseCredits = this.tier === 'FREE' ? 1000 : this.tier === 'PRO' ? 10000 : 100000;
-    return baseCredits;
+    if (this.tier === TenantTier.FREE) return 1_000;
+    if (this.tier === TenantTier.PRO) return 10_000;
+    return 100_000; // ENTERPRISE
   }
 }

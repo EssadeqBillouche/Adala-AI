@@ -34,11 +34,13 @@ export class AiEngineService implements OnModuleInit {
   private readonly logger = new Logger(AiEngineService.name);
   private aiEngineUrl: string;
   private apiSecret: string | undefined;
+  private readonly timeoutMs: number;
 
   constructor(private readonly configService: ConfigService) {
     this.aiEngineUrl =
       this.configService.get<string>('AI_ENGINE_URL', 'http://localhost:8000');
     this.apiSecret = this.configService.get<string>('INTERNAL_API_SECRET');
+    this.timeoutMs = this.configService.get<number>('AI_ENGINE_TIMEOUT_MS', 30000);
   }
 
   onModuleInit() {
@@ -76,6 +78,7 @@ export class AiEngineService implements OnModuleInit {
         n_results: request.n_results ?? 5,
         stream: true,
       }),
+      signal: AbortSignal.timeout(this.timeoutMs),
     });
 
     if (!response.ok) {
@@ -192,6 +195,7 @@ export class AiEngineService implements OnModuleInit {
         n_results: request.n_results ?? 5,
         stream: false,
       }),
+      signal: AbortSignal.timeout(this.timeoutMs),
     });
 
     if (!response.ok) {

@@ -10,7 +10,7 @@ describe('TenancyService', () => {
   let dataSource: DataSource;
   let mockManager: Partial<EntityManager>;
 
-  const mockTenantId = 'org-123e4567-e89b-12d3-a456-426614174000';
+  const mockTenantId = '123e4567-e89b-12d3-a456-426614174000';
 
   beforeEach(async () => {
     mockManager = {
@@ -68,8 +68,7 @@ describe('TenancyService', () => {
       expect(clsService.get).toHaveBeenCalledWith('tenantId');
       expect(dataSource.transaction).toHaveBeenCalled();
       expect(mockManager.query).toHaveBeenCalledWith(
-        `SET LOCAL "app.current_tenant_id" = $1`,
-        [mockTenantId],
+        `SET LOCAL "app.current_tenant_id" = '${mockTenantId}'`,
       );
       expect(mockOperation).toHaveBeenCalledWith(mockManager);
       expect(result).toBe('result');
@@ -107,8 +106,7 @@ describe('TenancyService', () => {
       await service.runWithTenant(mockOperation);
 
       expect(mockManager.query).toHaveBeenCalledWith(
-        `SET LOCAL "app.current_tenant_id" = $1`,
-        [mockTenantId],
+        `SET LOCAL "app.current_tenant_id" = '${mockTenantId}'`,
       );
     });
 
@@ -135,8 +133,8 @@ describe('TenancyService', () => {
       expect(result).toEqual({ data: 'test' });
     });
 
-    it('should work with different tenant IDs', async () => {
-      const differentTenantId = 'org-different-id';
+    it('should work with different valid tenant IDs', async () => {
+      const differentTenantId = '987f6543-e21b-32d3-a456-426614174000';
       (clsService.get as jest.Mock).mockReturnValue(differentTenantId);
       (mockManager.query as jest.Mock).mockResolvedValue(undefined);
       
@@ -145,8 +143,21 @@ describe('TenancyService', () => {
       await service.runWithTenant(mockOperation);
 
       expect(mockManager.query).toHaveBeenCalledWith(
-        `SET LOCAL "app.current_tenant_id" = $1`,
-        [differentTenantId],
+        `SET LOCAL "app.current_tenant_id" = '${differentTenantId}'`,
+      );
+    });
+
+    it('should throw UnauthorizedException for invalid UUID tenant ID', async () => {
+      const invalidTenantId = 'invalid-uuid';
+      (clsService.get as jest.Mock).mockReturnValue(invalidTenantId);
+      
+      const mockOperation = jest.fn();
+
+      await expect(service.runWithTenant(mockOperation)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      await expect(service.runWithTenant(mockOperation)).rejects.toThrow(
+        'Invalid tenant identifier',
       );
     });
 
@@ -174,13 +185,13 @@ describe('TenancyService', () => {
 
       expect(dataSource.transaction).toHaveBeenCalled();
       expect(mockManager.query).toHaveBeenCalledWith(
-        `SET LOCAL "app.current_tenant_id" = ''`,
+        `RESET "app.current_tenant_id"`,
       );
       expect(mockOperation).toHaveBeenCalledWith(mockManager);
       expect(result).toBe('result');
     });
 
-    it('should set empty tenant ID to bypass RLS', async () => {
+    it('should reset tenant ID to bypass RLS', async () => {
       (mockManager.query as jest.Mock).mockResolvedValue(undefined);
       
       const mockOperation = jest.fn().mockResolvedValue('result');
@@ -188,7 +199,7 @@ describe('TenancyService', () => {
       await service.runBypassingTenant(mockOperation);
 
       expect(mockManager.query).toHaveBeenCalledWith(
-        `SET LOCAL "app.current_tenant_id" = ''`,
+        `RESET "app.current_tenant_id"`,
       );
     });
 
@@ -353,12 +364,11 @@ describe('TenancyService', () => {
       await service.runWithTenant(mockOperation);
 
       expect(mockManager.query).toHaveBeenCalledWith(
-        expect.stringContaining('SET LOCAL'),
-        [mockTenantId],
+        `SET LOCAL "app.current_tenant_id" = '${mockTenantId}'`,
       );
     });
 
-    it('should bypass tenant isolation with empty string', async () => {
+    it('should bypass tenant isolation with RESET', async () => {
       (mockManager.query as jest.Mock).mockResolvedValue(undefined);
       
       const mockOperation = jest.fn().mockResolvedValue('result');
@@ -366,7 +376,7 @@ describe('TenancyService', () => {
       await service.runBypassingTenant(mockOperation);
 
       expect(mockManager.query).toHaveBeenCalledWith(
-        `SET LOCAL "app.current_tenant_id" = ''`,
+        `RESET "app.current_tenant_id"`,
       );
     });
   });
@@ -401,7 +411,7 @@ describe('TenancyService', () => {
   });
 
   describe('method comparison', () => {
-    it('should use different SET LOCAL values for each method', async () => {
+    it('should use correct SQL statement for each method', async () => {
       (clsService.get as jest.Mock).mockReturnValue(mockTenantId);
       (mockManager.query as jest.Mock).mockResolvedValue(undefined);
       
@@ -412,12 +422,11 @@ describe('TenancyService', () => {
 
       expect(mockManager.query).toHaveBeenNthCalledWith(
         1,
-        `SET LOCAL "app.current_tenant_id" = $1`,
-        [mockTenantId],
+        `SET LOCAL "app.current_tenant_id" = '${mockTenantId}'`,
       );
       expect(mockManager.query).toHaveBeenNthCalledWith(
         2,
-        `SET LOCAL "app.current_tenant_id" = ''`,
+        `RESET "app.current_tenant_id"`,
       );
     });
 

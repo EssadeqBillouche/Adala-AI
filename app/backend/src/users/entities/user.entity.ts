@@ -38,7 +38,7 @@ export class User {
   @Column({ name: 'last_login_at', type: 'timestamp', nullable: true })
   lastLoginAt!: Date;
 
-  @ManyToOne(() => Organization, (org) => org.users, { cascade: true, onDelete: 'CASCADE' })
+  @ManyToOne(() => Organization, (org) => org.users, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'organization_id' })
   organization!: Organization;
 

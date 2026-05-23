@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { Organization } from '../../organizations/entities/organization.entity';
-import { Conversation } from './conversation.entity';
-import { LegalDomain } from './enums/legal-domain.enum';
+import { Conversation } from '../../conversations/entities/conversation.entity';
+import { LegalDomain } from '../../legal-sources/entities/enums/legal-domain.enum';
 import { Locale } from '../../common/enums/locale.enum';
 
 @Entity('projects')

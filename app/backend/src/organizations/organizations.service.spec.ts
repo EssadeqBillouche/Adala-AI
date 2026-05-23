@@ -36,9 +36,11 @@ describe('OrganizationsService', () => {
     update: jest.fn(),
     delete: jest.fn(),
     remove: jest.fn(),
+    exists: jest.fn(),
   };
 
   beforeEach(async () => {
+    (mockRepository.exists as jest.Mock) = jest.fn().mockResolvedValue(false);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrganizationsService,
@@ -67,7 +69,7 @@ describe('OrganizationsService', () => {
 
       const result = await service.create(name);
 
-      expect(mockRepository.create).toHaveBeenCalledWith({ name });
+      expect(mockRepository.create).toHaveBeenCalledWith({ name, slug: 'test-organization' });
       expect(mockRepository.save).toHaveBeenCalledWith(createdOrg);
       expect(result).toEqual(createdOrg);
     });
