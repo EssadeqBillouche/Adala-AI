@@ -87,7 +87,7 @@ jobs:
 
       - name: Upload coverage to GitHub
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ai-engine-coverage
           path: ${{ env.WORKING_DIRECTORY }}/coverage.xml
@@ -126,7 +126,7 @@ jobs:
 
       - name: Upload security reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ai-engine-security-report
           path: |
